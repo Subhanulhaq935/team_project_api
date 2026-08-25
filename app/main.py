@@ -1,30 +1,21 @@
-from fastapi import FastAPI , status , HTTPException
-from pydantic import BaseModel , Field
+from fastapi import FastAPI , status , HTTPException , Depends
+from app.db.base import Base
+from app.db.session import engine , SessionLocal
+from app.models.project import Project
+from app.schemas.project import ProjectCreate , ProjectUpdate , ProjectResponse
+from app.services import project_service
+from sqlalchemy.orm import Session
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# temporary database
-projects = []
-
-# Pydantic Schema for creating a project
-class ProjectCreate(BaseModel):
-    name: str = Field(..., min_length=3 , max_length=100)
-    description: str | None = Field(None, max_length=500)
-    status: str = "active"
-
-
-# Pydantic Schema for updating a project
-class ProjectUpdate(BaseModel):
-    name: str | None = Field(None, min_length=3 , max_length=100)
-    description: str | None = Field(None, max_length=500)
-    status: str | None = None
-
-# Pydantic Schema for returning a project
-class ProjectResponse(BaseModel):
-    id: int
-    name: str
-    description: str | None
-    status: str
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.get("/health")
 def health():
@@ -32,66 +23,57 @@ def health():
 
 # Get all projects
 @app.get("/api/v1/projects" , response_model=list[ProjectResponse])
-def get_projects():
-    return projects
+def get_projects(db : Session = Depends(get_db)):
+    return project_service.get_projects(db)
 
 # Get project by id
 @app.get("/api/v1/projects/{project_id}" , response_model=ProjectResponse)
-def get_project(project_id :int):
-    for project in projects:
-        if project["id"] == project_id:
-            return project
+def get_project(project_id :int , db : Session = Depends(get_db)):
+    project = project_service.get_project_by_id(db , project_id)
 
-    raise HTTPException(
-        status_code = status.HTTP_404_NOT_FOUND,
-        detail = "Project not found"
-    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    return project
 
 # Create a new Project
 
 @app.post("/api/v1/projects" , status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
-def create_project(project: ProjectCreate):
-    new_project = {
-        "id": len(projects) + 1,
-        "name": project.name,
-        "description": project.description,
-        "status": project.status
-    }
-
-    projects.append(new_project)
-    return new_project
+def create_project(project: ProjectCreate , db : Session = Depends(get_db)):
+    return project_service.create_project(db , project)
+    
 
 # Update a project
 @app.patch("/api/v1/projects/{project_id}" , response_model=ProjectResponse)
-def update_project(project_id: int, project: ProjectUpdate):
-    for existing_project in projects:
-        if existing_project["id"] == project_id:
-            if project.name is not None:
-                existing_project["name"] = project.name
-            if project.description is not None:
-                existing_project["description"] = project.description
-            if project.status is not None:
-                existing_project["status"] = project.status
-            return existing_project
+def update_project(project_id: int, project: ProjectUpdate , db : Session = Depends(get_db)):
+    updated_project = project_service.update_project(db , project_id , project)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Project not found"
-    )
+    if updated_project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    return updated_project
+    
 
 # Delete a project
 
 @app.delete("/api/v1/projects/{project_id}" , status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int):
-    for project in projects:
-        if project["id"] == project_id:
-            projects.remove(project)
-            return
+def delete_project(project_id: int , db : Session = Depends(get_db)):
+    delete = project_service.delete_project(db , project_id)
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Project not found"
-    )
+    if delete is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    return None
+
 
 
 

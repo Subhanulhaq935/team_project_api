@@ -209,11 +209,7 @@ Current tables:
 
 Swagger UI:
 
-`http://127.0.0.1:8000/docs`
-
-OpenAPI:
-
-`http://127.0.0.1:8000/openapi.json`
+https://team-project-api-eakc.onrender.com/docs#/
 
 ---
 
@@ -247,5 +243,3 @@ team-project-api/
 ├── .env
 └── README.md
 ```
-
-> **Note:** `.env` contains local/database credentials and should not be committed to the repository.

@@ -11,6 +11,8 @@ from alembic import context
 from app.db.base import Base
 from app.models.project import Project
 from app.models.user import User
+from app.models.task import Task
+from app.models.comment import Comment
 
 load_dotenv()
 

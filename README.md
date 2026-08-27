@@ -205,6 +205,69 @@ Current tables:
 
 ---
 
+Day 4 — Tasks, Comments & Relationships
+Technologies
+FastAPI
+PostgreSQL
+SQLAlchemy
+Alembic
+Pydantic
+Implemented
+Added Task model
+Added Comment model
+Created Task database table
+Created Comment database table
+Added foreign key relationship between Projects and Tasks
+Added foreign key relationship between Users and Tasks
+Added foreign key relationship between Tasks and Comments
+Added foreign key relationship between Users and Comments
+Added Task schemas
+Added Comment schemas
+Added Task repository
+Added Task service
+Added Comment repository
+Added Comment service
+Added Task APIs
+Added Comment APIs
+Added project/task relationship validation
+Added task/comment relationship validation
+Tested Task creation and retrieval
+Tested Comment creation and retrieval
+Generated and applied Alembic migration for Tasks and Comments
+Task Model
+
+The tasks table contains:
+
+id
+project_id
+title
+description
+status
+assigned_to_user_id
+due_date
+created_at
+updated_at
+Task Relationships
+Each Task belongs to one Project.
+A Project can have multiple Tasks.
+A Task can optionally be assigned to a User.
+A User can be assigned multiple Tasks.
+Comment Model
+
+The comments table contains:
+
+id
+task_id
+user_id
+comment
+created_at
+updated_at
+Comment Relationships
+Each Comment belongs to one Task.
+Each Comment belongs to one User.
+A Task can have multiple Comments.
+A User can create multiple Comment
+
 # API Documentation
 
 Swagger UI:
@@ -212,10 +275,6 @@ Swagger UI:
 https://team-project-api-eakc.onrender.com/docs#/
 
 ---
-
-# Repository Structure
-
-```text
 team-project-api/
 │
 ├── app/
@@ -226,15 +285,33 @@ team-project-api/
 │   │
 │   ├── models/
 │   │   ├── project.py
-│   │   └── user.py
+│   │   ├── user.py
+│   │   ├── task.py
+│   │   └── comment.py
 │   │
-│   └── ...
+│   ├── repositories/
+│   │   ├── project_repository.py
+│   │   ├── task_repository.py
+│   │   └── comment_repository.py
+│   │
+│   ├── schemas/
+│   │   ├── project.py
+│   │   ├── task.py
+│   │   └── comment.py
+│   │
+│   ├── services/
+│   │   ├── project_service.py
+│   │   ├── task_service.py
+│   │   └── comment_service.py
+│   │
+│   └── main.py
 │
 ├── alembic/
 │   ├── versions/
 │   │   ├── 001_create_projects.py
 │   │   ├── 002_create_users.py
-│   │   └── 003_add_client_name.py
+│   │   ├── 003_add_client_name.py
+│   │   └── add_tasks_and_comments.py
 │   │
 │   ├── env.py
 │   └── script.py.mako
@@ -242,4 +319,5 @@ team-project-api/
 ├── alembic.ini
 ├── .env
 └── README.md
+
 ```

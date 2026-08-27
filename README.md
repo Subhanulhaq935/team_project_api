@@ -23,9 +23,14 @@
 
 ---
 
----
-📊 Development ProgressMilestoneKey Focus AreaStatusDay 1FastAPI & REST Fundamentals✅ CompleteDay 2PostgreSQL & SQLAlchemy Integration✅ CompleteDay 3Alembic Migrations & Database Seeding✅ CompleteDay 4Tasks, Comments & Relational Architecture✅ Complete
----
+## 📊 Development Progress
+
+| Milestone | Key Focus Area | Status |
+| :--- | :--- | :---: |
+| **Day 1** | FastAPI & REST Fundamentals | `✅ Complete` |
+| **Day 2** | PostgreSQL & SQLAlchemy Integration | `✅ Complete` |
+| **Day 3** | Alembic Migrations & Database Seeding | `✅ Complete` |
+| **Day 4** | Tasks, Comments & Relational Architecture | `✅ Complete` |
 
 ## 📂 Project Structure
 

@@ -80,6 +80,19 @@
 * Implemented the Repository and Service architectural pattern for business logic.
 * Added relational integrity checks across Projects, Tasks, Users, and Comments.
 
+
+### Day 5 — Many-to-Many Relationships, Project Members & Transactions
+
+* **Many-to-Many Architecture:** Implemented a Many-to-Many relationship between `Projects` and `Users` using the `project_members` junction table.
+* **Project Membership Management:** Added full CRUD functionality and dedicated endpoints to add, view, and remove project members.
+* **Data Integrity:** Added a unique constraint on `(project_id, user_id)` to prevent duplicate member assignments.
+* **Project Analytics:** Built a Project Summary API aggregating total members, tasks, task statuses, and comments.
+* **Database Transactions & Consistency:**
+  * Wrapped project creation in atomic transactions using `commit()` and `rollback()`.
+  * Used `db.flush()` to generate and retrieve the `project_id` before creating the junction record.
+  * Automatically assigned the project creator the `PROJECT_MANAGER` role.
+* **API Testing:** Verified all new endpoints and relationship constraints via Swagger UI.
+
 ### Core Relationships
 
 * **Projects & Tasks:** One-to-Many (`Project` has many `Tasks`, `Task` belongs to one `Project`).

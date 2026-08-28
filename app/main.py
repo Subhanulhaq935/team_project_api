@@ -10,9 +10,15 @@ from app.schemas.task import TaskCreate, TaskResponse
 from app.services import task_service
 from app.models.user import User
 from app.models.comment import Comment
-from app.models.comment import Comment
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.services import comment_service
+from app.schemas.project_member import (
+    ProjectMemberCreate,
+    ProjectMemberResponse
+)
+from app.services import project_member_service
+from app.schemas.project_summary import ProjectSummaryResponse
+from app.services import project_summary_service
 
 Base.metadata.create_all(bind=engine)
 
@@ -191,6 +197,110 @@ def create_comment(
 
     return created_comment
 
+# Project Member Routes
+
+# Get all members of a project
+@app.get(
+    "/api/v1/projects/{project_id}/members",
+    response_model=list[ProjectMemberResponse]
+)
+def get_project_members(
+    project_id: int,
+    db: Session = Depends(get_db)
+):
+    members = project_member_service.get_project_members(
+        db,
+        project_id
+    )
+
+    if members is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    return members
+
+
+# Add member to project
+@app.post(
+    "/api/v1/projects/{project_id}/members",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ProjectMemberResponse
+)
+def add_project_member(
+    project_id: int,
+    member: ProjectMemberCreate,
+    db: Session = Depends(get_db)
+):
+    result = project_member_service.add_project_member(
+        db,
+        project_id,
+        member
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project or user not found"
+        )
+
+    if result == "already_exists":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already a member of this project"
+        )
+
+    return result
+
+
+# Remove member from project
+@app.delete(
+    "/api/v1/projects/{project_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT
+)
+def remove_project_member(
+    project_id: int,
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    result = project_member_service.remove_project_member(
+        db,
+        project_id,
+        user_id
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project member not found"
+        )
+
+    return None
+
+# Project Summary Routes
+# Project Summary Route
+
+@app.get(
+    "/api/v1/projects/{project_id}/summary",
+    response_model=ProjectSummaryResponse
+)
+def get_project_summary(
+    project_id: int,
+    db: Session = Depends(get_db)
+):
+    summary = project_summary_service.get_project_summary(
+        db,
+        project_id
+    )
+
+    if summary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+
+    return summary
 
 
 

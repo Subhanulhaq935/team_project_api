@@ -4,7 +4,10 @@ from sqlalchemy.orm import Session
 from app.models.project_member import ProjectMember
 
 
-def get_members_by_project(db: Session, project_id: int):
+def get_project_members(
+    db: Session,
+    project_id: int
+):
     statement = select(ProjectMember).where(
         ProjectMember.project_id == project_id
     )

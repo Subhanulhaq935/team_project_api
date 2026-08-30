@@ -1,6 +1,6 @@
 from fastapi import FastAPI , status , HTTPException , Depends
 from app.db.base import Base
-from app.db.session import engine , SessionLocal
+from app.db.session import engine, get_db
 from app.models.project import Project
 from app.schemas.project import ProjectCreate , ProjectUpdate , ProjectResponse
 from app.services import project_service
@@ -19,17 +19,15 @@ from app.schemas.project_member import (
 from app.services import project_member_service
 from app.schemas.project_summary import ProjectSummaryResponse
 from app.services import project_summary_service
+from app.schemas.auth import RegisterRequest
+from app.services import auth_service
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
+from app.core.security import get_current_user
+from app.models.user import User
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.get("/health")
 def health():
@@ -302,5 +300,54 @@ def get_project_summary(
 
     return summary
 
+# Authentication Routes
+@app.post("/api/v1/auth/register", status_code=201)
+def register(
+    user_data: RegisterRequest,
+    db: Session = Depends(get_db)
+):
+    result = auth_service.register_user(db, user_data)
 
+    if result == "already_exists":
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
 
+    return {
+        "message": "User registered successfully",
+        "user_id": result.id
+    }
+
+@app.post("/api/v1/auth/login", response_model=TokenResponse)
+def login(
+    user_data: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    access_token = auth_service.login_user(db, user_data)
+
+    if access_token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+# Protected Route
+
+@app.get("/api/v1/auth/me")
+def get_me(
+    current_user: User = Depends(get_current_user)
+):
+    return {
+        "id": current_user.id,
+        "firstname": current_user.firstname,
+        "lastname": current_user.lastname,
+        "email": current_user.email,
+        "role": current_user.role,
+        "is_active": current_user.is_active
+    }

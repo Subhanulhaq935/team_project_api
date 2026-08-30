@@ -10,3 +10,21 @@ def get_user_by_id(db: Session, user_id: int):
     result = db.execute(statement)
 
     return result.scalars().one_or_none()
+
+
+def get_user_by_email(db: Session, email: str):
+    statement = select(User).where(User.email == email)
+
+    result = db.execute(statement)
+
+    return result.scalars().one_or_none()
+
+
+def create_user(db: Session, user: User):
+    db.add(user)
+
+    db.commit()
+
+    db.refresh(user)
+
+    return user

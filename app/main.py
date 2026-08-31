@@ -24,6 +24,8 @@ from app.services import auth_service
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from app.core.security import get_current_user
 from app.models.user import User
+from app.schemas.auth import RefreshTokenRequest, RefreshTokenResponse
+from app.schemas.auth import RefreshTokenRequest
 
 Base.metadata.create_all(bind=engine)
 
@@ -324,16 +326,17 @@ def login(
     user_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    access_token = auth_service.login_user(db, user_data)
+    result = auth_service.login_user(db, user_data)
 
-    if access_token is None:
+    if result is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
     return {
-        "access_token": access_token,
+        "access_token": result["access_token"],
+        "refresh_token": result["refresh_token"],
         "token_type": "bearer"
     }
 
@@ -350,4 +353,51 @@ def get_me(
         "email": current_user.email,
         "role": current_user.role,
         "is_active": current_user.is_active
+    }
+
+# Refresh Token Route
+
+@app.post(
+    "/api/v1/auth/refresh",
+    response_model=RefreshTokenResponse
+)
+def refresh_token(
+    token_data: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    result = auth_service.refresh_access_token(
+        db,
+        token_data.refresh_token
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+
+    return {
+        "access_token": result["access_token"],
+        "refresh_token": result["refresh_token"],
+        "token_type": "bearer"
+    }
+
+@app.post("/api/v1/auth/logout")
+def logout(
+    token_data: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    result = auth_service.logout_user(
+        db,
+        token_data.refresh_token
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    return {
+        "message": "Logged out successfully"
     }

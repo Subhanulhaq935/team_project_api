@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories import user_repository
 from app.db.session import get_db
+import secrets
 
 load_dotenv()
 
@@ -69,6 +70,20 @@ def decode_access_token(token: str) -> dict:
         SECRET_KEY,
         algorithms=[ALGORITHM]
     )
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(token: str) -> str:
+    return password_hash.hash(token)
+
+
+def verify_refresh_token(
+    token: str,
+    token_hash: str
+) -> bool:
+    return password_hash.verify(token, token_hash)
 
 
 # Read Bearer token from Authorization header

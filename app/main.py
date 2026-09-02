@@ -26,6 +26,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.auth import RefreshTokenRequest, RefreshTokenResponse
 from app.schemas.auth import RefreshTokenRequest
+from app.dependencies.authorization import require_roles , require_project_access
 
 Base.metadata.create_all(bind=engine)
 
@@ -36,14 +37,27 @@ def health():
     return {"status": "ok"}
 
 # Get all projects
-@app.get("/api/v1/projects" , response_model=list[ProjectResponse])
-def get_projects(db : Session = Depends(get_db)):
+@app.get("/api/v1/projects", response_model=list[ProjectResponse])
+def get_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "manager"))
+):
     return project_service.get_projects(db)
 
 # Get project by id
-@app.get("/api/v1/projects/{project_id}" , response_model=ProjectResponse)
-def get_project(project_id :int , db : Session = Depends(get_db)):
-    project = project_service.get_project_by_id(db , project_id)
+@app.get(
+    "/api/v1/projects/{project_id}",
+    response_model=ProjectResponse
+)
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
+):
+    project = project_service.get_project_by_id(
+        db,
+        project_id
+    )
 
     if project is None:
         raise HTTPException(

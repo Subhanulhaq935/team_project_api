@@ -1,11 +1,14 @@
 # 🚀 Team Project & Task Management REST API
 
+A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, and **SQLAlchemy 2.0**, featuring robust JWT authentication, refresh token rotation, and granular Role-Based Access Control (RBAC).
+
 ---
 
 ## 📌 Live Demo & API Documentation
 
-* **Interactive Swagger UI:** [team-project-api-eakc.onrender.com/docs](https://team-project-api-eakc.onrender.com/docs#/)
+* **Interactive Swagger UI (Render):** [team-project-api-eakc.onrender.com/docs](https://team-project-api-eakc.onrender.com/docs#/)
 * **Local Swagger UI:** `http://127.0.0.1:8000/docs`
+* **Local ReDoc:** `http://127.0.0.1:8000/redoc`
 * **Local OpenAPI JSON:** `http://127.0.0.1:8000/openapi.json`
 
 ---
@@ -15,11 +18,14 @@
 * **Language:** Python 3.13
 * **Framework:** FastAPI
 * **ASGI Server:** Uvicorn
-* **Data Validation:** Pydantic
+* **Data Validation:** Pydantic v2 (with `email-validator`)
 * **Database:** PostgreSQL (Neon Serverless)
 * **ORM:** SQLAlchemy 2.0
-* **Driver:** psycopg
+* **Database Driver:** psycopg
 * **Database Migrations:** Alembic
+* **Password Hashing:** Argon2id (`pwdlib[argon2]`)
+* **Authentication & Authorization:** PyJWT (Access Tokens) & Cryptographic Refresh Tokens (`secrets`)
+* **Architecture:** Layered Architecture (Models, Repositories, Services, Schemas, Dependencies)
 
 ---
 
@@ -31,7 +37,12 @@
 | **Day 2** | PostgreSQL & SQLAlchemy Integration | `✅ Complete` |
 | **Day 3** | Alembic Migrations & Database Seeding | `✅ Complete` |
 | **Day 4** | Tasks, Comments & Relational Architecture | `✅ Complete` |
+| **Day 5** | Many-to-Many Relationships, Project Members & Transactions | `✅ Complete` |
+| **Day 6** | User Authentication & JWT Authorization | `✅ Complete` |
+| **Day 7** | Refresh Tokens, Token Rotation & Session Security | `✅ Complete` |
+| **Day 8** | Role-Based Access Control (RBAC) & Project Access Authorization | `✅ Complete` |
 
+---
 
 ## 📅 Daily Milestones & Technical Log
 
@@ -54,12 +65,10 @@
 
 ### Day 4 — Tasks, Comments & Relational Architecture
 * Added `Task` and `Comment` models with Foreign Key constraints.
-* Implemented the Repository and Service architectural pattern for business logic.
+* Implemented the Repository and Service architectural pattern for clean separation of concerns.
 * Added relational integrity checks across Projects, Tasks, Users, and Comments.
 
-
 ### Day 5 — Many-to-Many Relationships, Project Members & Transactions
-
 * **Many-to-Many Architecture:** Implemented a Many-to-Many relationship between `Projects` and `Users` using the `project_members` junction table.
 * **Project Membership Management:** Added full CRUD functionality and dedicated endpoints to add, view, and remove project members.
 * **Data Integrity:** Added a unique constraint on `(project_id, user_id)` to prevent duplicate member assignments.
@@ -70,12 +79,80 @@
   * Automatically assigned the project creator the `PROJECT_MANAGER` role.
 * **API Testing:** Verified all new endpoints and relationship constraints via Swagger UI.
 
-### Core Relationships
+### Day 6 — User Authentication & JWT Authorization
+* **Password Hashing:** Integrated modern password hashing with Argon2id using `pwdlib`.
+* **User Registration (`POST /api/v1/auth/register`):** Enforces email uniqueness validation and securely stores hashed passwords.
+* **User Login (`POST /api/v1/auth/login`):** Verifies user credentials and generates short-lived JWT access tokens with claims (`sub`, `role`, `iat`, `exp`, `jti`).
+* **Protected Routes (`GET /api/v1/auth/me`):** Created `get_current_user` FastAPI dependency utilizing `HTTPBearer` to validate access tokens and attach the authenticated `User` to requests.
+
+### Day 7 — Refresh Tokens, Token Rotation & Session Security
+* **Database-Backed Refresh Tokens:** Created the `RefreshToken` database model and executed Alembic migration `fc1d00a5b271_add_refresh_tokens.py`.
+* **Cryptographic Security:** Generated 64-byte URL-safe cryptographically secure random tokens (`secrets.token_urlsafe`) and stored Argon2-hashed copies in the database.
+* **Token Rotation (`POST /api/v1/auth/refresh`):** Implemented refresh token rotation; every refresh request revokes the existing token and generates a brand-new access and refresh token pair.
+* **Session Revocation / Logout (`POST /api/v1/auth/logout`):** Allows users to securely invalidate refresh tokens upon logging out.
+
+### Day 8 — Role-Based Access Control (RBAC) & Project Authorization
+* **Role Verification Dependency:** Implemented `require_roles(*allowed_roles)` in `app/dependencies/authorization.py` to enforce role permissions across endpoints.
+* **Route Protection:** Restricted project listing (`GET /api/v1/projects`) exclusively to `admin` and `manager` roles.
+* **Granular Project Access Control (`require_project_access`):**
+  * `admin` role has unrestricted access across all projects.
+  * `manager` role is validated to ensure they are designated as `PROJECT_MANAGER` for that project.
+  * Standard members are checked against the `project_members` repository to ensure membership.
+  * Unauthorized requests are rejected with `HTTP 403 Forbidden`.
+
+---
+
+## 🗄️ Database Relationships
 
 * **Projects & Tasks:** One-to-Many (`Project` has many `Tasks`, `Task` belongs to one `Project`).
 * **Users & Tasks:** One-to-Many (`User` can be assigned multiple `Tasks`).
 * **Tasks & Comments:** One-to-Many (`Task` contains multiple `Comments`).
 * **Users & Comments:** One-to-Many (`User` can post multiple `Comments`).
+* **Projects & Users (Members):** Many-to-Many via `project_members` junction table with roles (`PROJECT_MANAGER`, `MEMBER`).
+* **Users & Refresh Tokens:** One-to-Many (`User` can have active and revoked session `RefreshTokens`).
+
+---
+
+## 📡 API Endpoints Overview
+
+### 🔐 Authentication (`/api/v1/auth`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :---: |
+| `POST` | `/api/v1/auth/register` | Register a new user account | No |
+| `POST` | `/api/v1/auth/login` | Authenticate user & issue tokens | No |
+| `GET` | `/api/v1/auth/me` | Fetch authenticated user profile | Bearer Token |
+| `POST` | `/api/v1/auth/refresh` | Rotate and issue a new token pair | Refresh Token |
+| `POST` | `/api/v1/auth/logout` | Revoke active refresh token | Refresh Token |
+
+### 📁 Projects (`/api/v1/projects`)
+| Method | Endpoint | Description | Access / RBAC |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/api/v1/projects` | List all projects | Admin, Manager |
+| `POST` | `/api/v1/projects` | Create a new project | Public / System |
+| `GET` | `/api/v1/projects/{project_id}` | Retrieve project details | Project Members / Admin |
+| `PATCH` | `/api/v1/projects/{project_id}` | Update project metadata | Public / System |
+| `DELETE` | `/api/v1/projects/{project_id}` | Delete a project | Public / System |
+| `GET` | `/api/v1/projects/{project_id}/summary` | Aggregate project statistics | Public / System |
+
+### 👥 Project Members (`/api/v1/projects/{project_id}/members`)
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/api/v1/projects/{project_id}/members` | List all members in a project | Public / System |
+| `POST` | `/api/v1/projects/{project_id}/members` | Assign a user to a project | Public / System |
+| `DELETE` | `/api/v1/projects/{project_id}/members/{user_id}` | Remove user from project | Public / System |
+
+### ✅ Tasks (`/api/v1/projects/{project_id}/tasks`)
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/api/v1/projects/{project_id}/tasks` | Get all tasks for a project | Public / System |
+| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project | Public / System |
+| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task | Public / System |
+
+### 💬 Comments (`/api/v1/projects/{project_id}/tasks/{task_id}/comments`)
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}/comments` | List comments on a task | Public / System |
+| `POST` | `/api/v1/projects/{project_id}/tasks/{task_id}/comments` | Post a comment to a task | Public / System |
 
 ---
 
@@ -98,7 +175,9 @@ alembic current
 
 # View migration history
 alembic history
+```
 
+---
 
 ## 📂 Project Structure
 
@@ -106,44 +185,108 @@ alembic history
 team-project-api/
 │
 ├── app/
+│   ├── core/
+│   │   └── security.py                # Password hashing, JWT creation/verification, token utils
+│   │
 │   ├── db/
-│   │   ├── base.py
-│   │   ├── session.py
-│   │   └── seed.py
+│   │   ├── base.py                    # SQLAlchemy Base declaration
+│   │   ├── session.py                 # Engine & SessionLocal configuration
+│   │   └── seed.py                    # Database seeding script
+│   │
+│   ├── dependencies/
+│   │   └── authorization.py           # Role checking (RBAC) & project access dependencies
 │   │
 │   ├── models/
-│   │   ├── project.py
-│   │   ├── user.py
-│   │   ├── task.py
-│   │   └── comment.py
+│   │   ├── project.py                 # Project ORM model
+│   │   ├── user.py                    # User ORM model
+│   │   ├── task.py                    # Task ORM model
+│   │   ├── comment.py                 # Comment ORM model
+│   │   ├── project_member.py          # ProjectMember junction model
+│   │   └── refresh_token.py           # RefreshToken ORM model
 │   │
 │   ├── repositories/
-│   │   ├── project_repository.py
-│   │   ├── task_repository.py
-│   │   └── comment_repository.py
+│   │   ├── project_repository.py      # Project DB queries
+│   │   ├── task_repository.py         # Task DB queries
+│   │   ├── comment_repository.py      # Comment DB queries
+│   │   ├── project_member_repository.py # Project membership DB queries
+│   │   ├── project_summary_repository.py# Analytics & aggregation queries
+│   │   ├── refresh_token_repository.py# Refresh token DB queries
+│   │   └── user_repository.py         # User DB queries
 │   │
 │   ├── schemas/
-│   │   ├── project.py
-│   │   ├── task.py
-│   │   └── comment.py
+│   │   ├── auth.py                    # Auth request & response schemas
+│   │   ├── project.py                 # Project Pydantic schemas
+│   │   ├── task.py                    # Task Pydantic schemas
+│   │   ├── comment.py                 # Comment Pydantic schemas
+│   │   ├── project_member.py          # Membership schemas
+│   │   └── project_summary.py         # Project analytics response schema
 │   │
 │   ├── services/
-│   │   ├── project_service.py
-│   │   ├── task_service.py
-│   │   └── comment_service.py
+│   │   ├── auth_service.py            # Registration, login, token rotation logic
+│   │   ├── project_service.py         # Project business logic
+│   │   ├── task_service.py            # Task business logic
+│   │   ├── comment_service.py         # Comment business logic
+│   │   ├── project_member_service.py  # Member assignment logic
+│   │   └── project_summary_service.py # Aggregation service
 │   │
-│   └── main.py
+│   └── main.py                        # FastAPI application instance & routing
 │
 ├── alembic/
 │   ├── versions/
-│   │   ├── 001_create_projects.py
-│   │   ├── 002_create_users.py
-│   │   ├── 003_add_client_name.py
-│   │   └── add_tasks_and_comments.py
+│   │   ├── 1b07815f2c08_001_create_projects.py
+│   │   ├── a2dfe78749d3_002_create_users.py
+│   │   ├── d00bc0b48ff3_003_add_client_name.py
+│   │   ├── 92367f39c842_add_tasks_and_comments.py
+│   │   ├── 6944abf37c78_add_project_members.py
+│   │   └── fc1d00a5b271_add_refresh_tokens.py
 │   │
 │   ├── env.py
 │   └── script.py.mako
 │
+├── .env.example
 ├── alembic.ini
-├── .env
+├── requirements.txt
 └── README.md
+```
+
+---
+
+## 🚀 Getting Started Locally
+
+### 1. Clone & Set Up Environment
+```bash
+git clone https://github.com/Subhanulhaq935/team_project_api.git
+cd team_project_api
+
+# Create and activate virtual environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Linux / macOS
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment Variables
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL=postgresql+psycopg://<username>:<password>@<host>/<database>?sslmode=require
+JWT_SECRET_KEY=your_super_secret_jwt_key
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
+
+### 3. Run Migrations & Start Server
+```bash
+# Apply migrations
+alembic upgrade head
+
+# Start FastAPI development server
+uvicorn app.main:app --reload
+```
+
+Access Swagger UI at `http://127.0.0.1:8000/docs`.

@@ -1,4 +1,4 @@
-from fastapi import FastAPI , status , HTTPException , Depends
+from fastapi import FastAPI , status , HTTPException , Depends , Query
 from app.db.base import Base
 from app.db.session import engine, get_db
 from app.models.project import Project
@@ -27,6 +27,8 @@ from app.models.user import User
 from app.schemas.auth import RefreshTokenRequest, RefreshTokenResponse
 from app.schemas.auth import RefreshTokenRequest
 from app.dependencies.authorization import require_roles , require_project_access
+from app.schemas.pagination import PaginatedResponse
+from typing import Literal
 
 Base.metadata.create_all(bind=engine)
 
@@ -105,16 +107,42 @@ def delete_project(project_id: int , db : Session = Depends(get_db)):
 
 # Task routes
 
-# Get all tasks of a project
+# Get all tasks of a project (Paginated, Filtered, Searchable & Sorted)
 @app.get(
     "/api/v1/projects/{project_id}/tasks",
-    response_model=list[TaskResponse]
+    response_model=PaginatedResponse[TaskResponse]
 )
 def get_tasks(
     project_id: int,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    status: str | None = Query(None, description="Filter by status (e.g. pending, completed)"),
+    priority: str | None = Query(None, description="Filter by priority (e.g. low, medium, high, urgent)"),
+    assigned_to: int | None = Query(None, description="Filter by assigned user ID"),
+    search: str | None = Query(None, description="Search by title or description"),
+    sort_by: str = Query("created_at", description="Sort by field (created_at, due_date, priority, status, title, id)"),
+    sort_order: Literal["asc", "desc"] = Query("desc", description="Sort order (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    return task_service.get_tasks_by_project(db, project_id)
+    try:
+        return task_service.get_tasks_by_project(
+            db=db,
+            project_id=project_id,
+            page=page,
+            page_size=page_size,
+            status=status,
+            priority=priority,
+            assigned_to=assigned_to,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
 
 
 # Create a task inside a project

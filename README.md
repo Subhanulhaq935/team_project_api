@@ -41,6 +41,7 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 | **Day 6** | User Authentication & JWT Authorization | `✅ Complete` |
 | **Day 7** | Refresh Tokens, Token Rotation & Session Security | `✅ Complete` |
 | **Day 8** | Role-Based Access Control (RBAC) & Project Access Authorization | `✅ Complete` |
+| **Day 9** | Validation, Filtering, Pagination, Search & Sorting | `✅ Complete` |
 
 ---
 
@@ -100,6 +101,14 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
   * Standard members are checked against the `project_members` repository to ensure membership.
   * Unauthorized requests are rejected with `HTTP 403 Forbidden`.
 
+### Day 9 — Validation, Filtering, Pagination, Search & Sorting
+* **Task Priority & Schema Migration:** Added `priority` (`low`, `medium`, `high`, `urgent`) to the `Task` model and ran Alembic migration `8fc07d24f988_add_task_priority.py`.
+* **Validation & Schemas Clean-up:** Enforced strict Pydantic validation on create, update, and response schemas. Protected sensitive fields (`id`, `project_id`, `role`, `is_active`, `created_at`) from user mutation.
+* **Production-Style Pagination:** Implemented generic `PaginatedResponse[T]` supporting query parameters `?page=1&page_size=20` (capped at max 100) returning `items`, `total`, `page`, `page_size`, and `total_pages`.
+* **Dynamic Multi-Field Filtering:** Added filter support for `?status=`, `?priority=`, and `?assigned_to=` with dynamic query building.
+* **Search Capabilities:** Implemented case-insensitive search (`?search=`) across task title and description using SQLAlchemy `ilike` and `or_`.
+* **Sorting & Whitelist Security:** Supported `?sort_by=` and `?sort_order=asc|desc` with strict server-side whitelisting (`created_at`, `due_date`, `priority`, `status`, `title`, `id`) returning `HTTP 400 Bad Request` on invalid fields.
+
 ---
 
 ## 🗄️ Database Relationships
@@ -142,11 +151,11 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 | `DELETE` | `/api/v1/projects/{project_id}/members/{user_id}` | Remove user from project | Public / System |
 
 ### ✅ Tasks (`/api/v1/projects/{project_id}/tasks`)
-| Method | Endpoint | Description | Access |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/api/v1/projects/{project_id}/tasks` | Get all tasks for a project | Public / System |
-| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project | Public / System |
-| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task | Public / System |
+| Method | Endpoint | Description | Query Parameters / Features |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/projects/{project_id}/tasks` | Get paginated, filtered, searchable & sorted tasks | `page`, `page_size`, `status`, `priority`, `assigned_to`, `search`, `sort_by`, `sort_order` |
+| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project (with priority) | Body: `TaskCreate` |
+| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task | - |
 
 ### 💬 Comments (`/api/v1/projects/{project_id}/tasks/{task_id}/comments`)
 | Method | Endpoint | Description | Access |
@@ -199,14 +208,14 @@ team-project-api/
 │   ├── models/
 │   │   ├── project.py                 # Project ORM model
 │   │   ├── user.py                    # User ORM model
-│   │   ├── task.py                    # Task ORM model
+│   │   ├── task.py                    # Task ORM model (with priority)
 │   │   ├── comment.py                 # Comment ORM model
 │   │   ├── project_member.py          # ProjectMember junction model
 │   │   └── refresh_token.py           # RefreshToken ORM model
 │   │
 │   ├── repositories/
 │   │   ├── project_repository.py      # Project DB queries
-│   │   ├── task_repository.py         # Task DB queries
+│   │   ├── task_repository.py         # Task DB queries (pagination, filters, search, sorting)
 │   │   ├── comment_repository.py      # Comment DB queries
 │   │   ├── project_member_repository.py # Project membership DB queries
 │   │   ├── project_summary_repository.py# Analytics & aggregation queries
@@ -215,8 +224,10 @@ team-project-api/
 │   │
 │   ├── schemas/
 │   │   ├── auth.py                    # Auth request & response schemas
+│   │   ├── user.py                    # User safe response & update schemas
 │   │   ├── project.py                 # Project Pydantic schemas
-│   │   ├── task.py                    # Task Pydantic schemas
+│   │   ├── task.py                    # Task Pydantic schemas (with priority)
+│   │   ├── pagination.py              # Generic PaginatedResponse schema
 │   │   ├── comment.py                 # Comment Pydantic schemas
 │   │   ├── project_member.py          # Membership schemas
 │   │   └── project_summary.py         # Project analytics response schema
@@ -224,7 +235,7 @@ team-project-api/
 │   ├── services/
 │   │   ├── auth_service.py            # Registration, login, token rotation logic
 │   │   ├── project_service.py         # Project business logic
-│   │   ├── task_service.py            # Task business logic
+│   │   ├── task_service.py            # Task business logic (validation, sorting whitelist)
 │   │   ├── comment_service.py         # Comment business logic
 │   │   ├── project_member_service.py  # Member assignment logic
 │   │   └── project_summary_service.py # Aggregation service
@@ -238,7 +249,8 @@ team-project-api/
 │   │   ├── d00bc0b48ff3_003_add_client_name.py
 │   │   ├── 92367f39c842_add_tasks_and_comments.py
 │   │   ├── 6944abf37c78_add_project_members.py
-│   │   └── fc1d00a5b271_add_refresh_tokens.py
+│   │   ├── fc1d00a5b271_add_refresh_tokens.py
+│   │   └── 8fc07d24f988_add_task_priority.py
 │   │
 │   ├── env.py
 │   └── script.py.mako

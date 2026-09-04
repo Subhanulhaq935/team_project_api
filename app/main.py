@@ -1,42 +1,133 @@
-from fastapi import FastAPI , status , HTTPException , Depends , Query
+import os
+from typing import Literal
+from dotenv import load_dotenv
+from fastapi import FastAPI, status, HTTPException, Depends, Query
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
 from app.db.base import Base
 from app.db.session import engine, get_db
 from app.models.project import Project
-from app.schemas.project import ProjectCreate , ProjectUpdate , ProjectResponse
-from app.services import project_service
-from sqlalchemy.orm import Session
 from app.models.task import Task
-from app.schemas.task import TaskCreate, TaskResponse
-from app.services import task_service
 from app.models.user import User
 from app.models.comment import Comment
+from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.schemas.task import TaskCreate, TaskResponse
 from app.schemas.comment import CommentCreate, CommentResponse
-from app.services import comment_service
-from app.schemas.project_member import (
-    ProjectMemberCreate,
-    ProjectMemberResponse
-)
-from app.services import project_member_service
+from app.schemas.project_member import ProjectMemberCreate, ProjectMemberResponse
 from app.schemas.project_summary import ProjectSummaryResponse
-from app.services import project_summary_service
-from app.schemas.auth import RegisterRequest
-from app.services import auth_service
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse
-from app.core.security import get_current_user
-from app.models.user import User
-from app.schemas.auth import RefreshTokenRequest, RefreshTokenResponse
-from app.schemas.auth import RefreshTokenRequest
-from app.dependencies.authorization import require_roles , require_project_access
+from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
 from app.schemas.pagination import PaginatedResponse
-from typing import Literal
+from app.services import (
+    project_service,
+    task_service,
+    comment_service,
+    project_member_service,
+    project_summary_service,
+    auth_service,
+)
+from app.core.security import get_current_user
+from app.dependencies.authorization import require_roles, require_project_access
+from app.core.middleware import RequestIDMiddleware, LoggingMiddleware
+from app.core.error_handlers import register_error_handlers
+from app.core.exceptions import (
+    ProjectNotFoundException,
+    TaskNotFoundException,
+    DuplicateMemberException,
+    InvalidCredentialsException,
+    BadRequestException,
+)
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+# ==========================================
+# OpenAPI / Swagger Tags Metadata
+# ==========================================
+tags_metadata = [
+    {
+        "name": "Health",
+        "description": "Health check and system uptime status.",
+    },
+    {
+        "name": "Authentication",
+        "description": "User registration, login, JWT token rotation, and session logout.",
+    },
+    {
+        "name": "Projects",
+        "description": "Create, read, update, and delete projects with Role-Based Access Control.",
+    },
+    {
+        "name": "Tasks",
+        "description": "Project task management with filtering, searching, sorting, and pagination.",
+    },
+    {
+        "name": "Comments",
+        "description": "Task discussions and activity comments.",
+    },
+    {
+        "name": "Project Members",
+        "description": "Manage project members and assign project roles.",
+    },
+    {
+        "name": "Project Summary",
+        "description": "Aggregated analytics and metrics for projects.",
+    },
+]
+# ==========================================
+# FastAPI App Initialization
+# ==========================================
+app = FastAPI(
+    title="Team Project Management API",
+    description="""
+    🚀 **Production-grade REST API** built with FastAPI and PostgreSQL.
+    
+    ### Features:
+    * 🔐 **Authentication & Security**: JWT Access and Refresh Tokens with Argon2id hashing.
+    * 👥 **Role-Based Access Control (RBAC)**: Admin, Manager, and Member permissions.
+    * ⚡ **Tasks & Comments**: Pagination, multi-field filtering, sorting, and search.
+    * 🛡️ **Middleware & Logging**: Unique Request ID (`X-Request-ID`), structured request logging, and configurable CORS.
+    * 🚨 **Global Error Handling**: Standardized error responses with error codes and request IDs.
+    """,
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
+
+# 1. Register Global Error Handlers
+register_error_handlers(app)
+
+# 2. Allowed Origins from .env
+allowed_origins_raw = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000"
+)
+allowed_origins = [origin.strip() for origin in allowed_origins_raw.split(",") if origin.strip()]
+
+# 3. Add Middlewares in order
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
+)
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ==========================================
+# Project Routes
+# ==========================================
 
 # Get all projects
 @app.get("/api/v1/projects", response_model=list[ProjectResponse])
@@ -45,6 +136,7 @@ def get_projects(
     current_user: User = Depends(require_roles("admin", "manager"))
 ):
     return project_service.get_projects(db)
+
 
 # Get project by id
 @app.get(
@@ -56,56 +148,39 @@ def get_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_project_access)
 ):
-    project = project_service.get_project_by_id(
-        db,
-        project_id
-    )
-
+    project = project_service.get_project_by_id(db, project_id)
     if project is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-
+        raise ProjectNotFoundException()
     return project
 
-# Create a new Project
 
-@app.post("/api/v1/projects" , status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
-def create_project(project: ProjectCreate , db : Session = Depends(get_db)):
-    return project_service.create_project(db , project)
-    
+# Create a new Project
+@app.post("/api/v1/projects", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
+def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
+    return project_service.create_project(db, project)
+
 
 # Update a project
-@app.patch("/api/v1/projects/{project_id}" , response_model=ProjectResponse)
-def update_project(project_id: int, project: ProjectUpdate , db : Session = Depends(get_db)):
-    updated_project = project_service.update_project(db , project_id , project)
-
+@app.patch("/api/v1/projects/{project_id}", response_model=ProjectResponse)
+def update_project(project_id: int, project: ProjectUpdate, db: Session = Depends(get_db)):
+    updated_project = project_service.update_project(db, project_id, project)
     if updated_project is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-
+        raise ProjectNotFoundException()
     return updated_project
-    
+
 
 # Delete a project
-
-@app.delete("/api/v1/projects/{project_id}" , status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int , db : Session = Depends(get_db)):
-    delete = project_service.delete_project(db , project_id)
-
+@app.delete("/api/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    delete = project_service.delete_project(db, project_id)
     if delete is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-
+        raise ProjectNotFoundException()
     return None
 
 
-# Task routes
+# ==========================================
+# Task Routes
+# ==========================================
 
 # Get all tasks of a project (Paginated, Filtered, Searchable & Sorted)
 @app.get(
@@ -138,11 +213,7 @@ def get_tasks(
             sort_order=sort_order
         )
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
+        raise BadRequestException(code="INVALID_QUERY_PARAMS", message=str(e))
 
 
 # Create a task inside a project
@@ -169,21 +240,15 @@ def get_task(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    task = task_service.get_task_by_id(
-        db,
-        project_id,
-        task_id
-    )
-
+    task = task_service.get_task_by_id(db, project_id, task_id)
     if task is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found in this project"
-        )
-
+        raise TaskNotFoundException("Task not found in this project")
     return task
 
+
+# ==========================================
 # Comments Routes
+# ==========================================
 
 # Get comments of a task
 @app.get(
@@ -195,18 +260,9 @@ def get_comments(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    comments = comment_service.get_comments_by_task(
-        db,
-        project_id,
-        task_id
-    )
-
+    comments = comment_service.get_comments_by_task(db, project_id, task_id)
     if comments is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found in this project"
-        )
-
+        raise TaskNotFoundException("Task not found in this project")
     return comments
 
 
@@ -230,16 +286,14 @@ def create_comment(
         user_id,
         comment
     )
-
     if created_comment is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Task not found in this project"
-        )
-
+        raise TaskNotFoundException("Task not found in this project")
     return created_comment
 
+
+# ==========================================
 # Project Member Routes
+# ==========================================
 
 # Get all members of a project
 @app.get(
@@ -250,17 +304,9 @@ def get_project_members(
     project_id: int,
     db: Session = Depends(get_db)
 ):
-    members = project_member_service.get_project_members(
-        db,
-        project_id
-    )
-
+    members = project_member_service.get_project_members(db, project_id)
     if members is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-
+        raise ProjectNotFoundException()
     return members
 
 
@@ -275,24 +321,11 @@ def add_project_member(
     member: ProjectMemberCreate,
     db: Session = Depends(get_db)
 ):
-    result = project_member_service.add_project_member(
-        db,
-        project_id,
-        member
-    )
-
+    result = project_member_service.add_project_member(db, project_id, member)
     if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or user not found"
-        )
-
+        raise ProjectNotFoundException("Project or user not found")
     if result == "already_exists":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User is already a member of this project"
-        )
-
+        raise DuplicateMemberException()
     return result
 
 
@@ -306,22 +339,15 @@ def remove_project_member(
     user_id: int,
     db: Session = Depends(get_db)
 ):
-    result = project_member_service.remove_project_member(
-        db,
-        project_id,
-        user_id
-    )
-
+    result = project_member_service.remove_project_member(db, project_id, user_id)
     if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project member not found"
-        )
-
+        raise ProjectNotFoundException("Project member not found")
     return None
 
-# Project Summary Routes
+
+# ==========================================
 # Project Summary Route
+# ==========================================
 
 @app.get(
     "/api/v1/projects/{project_id}/summary",
@@ -331,37 +357,30 @@ def get_project_summary(
     project_id: int,
     db: Session = Depends(get_db)
 ):
-    summary = project_summary_service.get_project_summary(
-        db,
-        project_id
-    )
-
+    summary = project_summary_service.get_project_summary(db, project_id)
     if summary is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found"
-        )
-
+        raise ProjectNotFoundException()
     return summary
 
+
+# ==========================================
 # Authentication Routes
+# ==========================================
+
 @app.post("/api/v1/auth/register", status_code=201)
 def register(
     user_data: RegisterRequest,
     db: Session = Depends(get_db)
 ):
     result = auth_service.register_user(db, user_data)
-
     if result == "already_exists":
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered"
-        )
+        raise BadRequestException(code="USER_ALREADY_EXISTS", message="Email already registered")
 
     return {
         "message": "User registered successfully",
         "user_id": result.id
     }
+
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
 def login(
@@ -369,12 +388,8 @@ def login(
     db: Session = Depends(get_db)
 ):
     result = auth_service.login_user(db, user_data)
-
     if result is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password"
-        )
+        raise InvalidCredentialsException()
 
     return {
         "access_token": result["access_token"],
@@ -382,8 +397,8 @@ def login(
         "token_type": "bearer"
     }
 
-# Protected Route
 
+# Protected Route
 @app.get("/api/v1/auth/me")
 def get_me(
     current_user: User = Depends(get_current_user)
@@ -397,8 +412,8 @@ def get_me(
         "is_active": current_user.is_active
     }
 
-# Refresh Token Route
 
+# Refresh Token Route
 @app.post(
     "/api/v1/auth/refresh",
     response_model=RefreshTokenResponse
@@ -407,16 +422,9 @@ def refresh_token(
     token_data: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
-    result = auth_service.refresh_access_token(
-        db,
-        token_data.refresh_token
-    )
-
+    result = auth_service.refresh_access_token(db, token_data.refresh_token)
     if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token"
-        )
+        raise InvalidCredentialsException("Invalid or expired refresh token")
 
     return {
         "access_token": result["access_token"],
@@ -424,21 +432,15 @@ def refresh_token(
         "token_type": "bearer"
     }
 
+
 @app.post("/api/v1/auth/logout")
 def logout(
     token_data: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
-    result = auth_service.logout_user(
-        db,
-        token_data.refresh_token
-    )
-
+    result = auth_service.logout_user(db, token_data.refresh_token)
     if not result:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
-        )
+        raise InvalidCredentialsException("Invalid refresh token")
 
     return {
         "message": "Logged out successfully"

@@ -31,8 +31,12 @@ def hash_password(password: str) -> str:
 
 
 # Verify password against stored hash
+# Verify password against stored hash safely
 def verify_password(password: str, hashed_password: str) -> bool:
-    return password_hash.verify(password, hashed_password)
+    try:
+        return password_hash.verify(password, hashed_password)
+    except Exception:
+        return False
 
 
 # Create JWT access token

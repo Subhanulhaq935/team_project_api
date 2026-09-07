@@ -194,7 +194,7 @@ def get_tasks(
     status: str | None = Query(None, description="Filter by status (e.g. pending, completed)"),
     priority: str | None = Query(None, description="Filter by priority (e.g. low, medium, high, urgent)"),
     assigned_to: int | None = Query(None, description="Filter by assigned user ID"),
-    search: str | None = Query(None, description="Search by title or description"),
+    search: str | None = Query(None,max_length=100, description="Search by title or description"),
     sort_by: str = Query("created_at", description="Sort by field (created_at, due_date, priority, status, title, id)"),
     sort_order: Literal["asc", "desc"] = Query("desc", description="Sort order (asc or desc)"),
     db: Session = Depends(get_db)

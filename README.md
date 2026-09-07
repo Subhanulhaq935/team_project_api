@@ -1,6 +1,6 @@
 # 🚀 Team Project & Task Management REST API
 
-A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, and **SQLAlchemy 2.0**, featuring robust JWT authentication, refresh token rotation, and granular Role-Based Access Control (RBAC).
+A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, and **SQLAlchemy 2.0**, featuring robust JWT authentication, refresh token rotation, Role-Based Access Control (RBAC), structured middleware logging, standardized global error handling, and comprehensive unit and integration test suites with 75%+ coverage.
 
 ---
 
@@ -25,6 +25,8 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 * **Database Migrations:** Alembic
 * **Password Hashing:** Argon2id (`pwdlib[argon2]`)
 * **Authentication & Authorization:** PyJWT (Access Tokens) & Cryptographic Refresh Tokens (`secrets`)
+* **Middleware & Observability:** Custom `RequestIDMiddleware` (`X-Request-ID`), structured logging & CORS
+* **Testing & Quality Assurance:** `pytest`, `pytest-cov`, `httpx` / `TestClient`, `unittest.mock`
 * **Architecture:** Layered Architecture (Models, Repositories, Services, Schemas, Dependencies)
 
 ---
@@ -41,7 +43,10 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 | **Day 6** | User Authentication & JWT Authorization | `✅ Complete` |
 | **Day 7** | Refresh Tokens, Token Rotation & Session Security | `✅ Complete` |
 | **Day 8** | Role-Based Access Control (RBAC) & Project Access Authorization | `✅ Complete` |
-| **Day 9** | Validation, Filtering, Pagination, Search & Sorting | `✅ Complete` |
+| **Day 9** | Advanced Querying: Pagination, Filtering, Sorting & Search | `✅ Complete` |
+| **Day 10** | Middleware, Structured Logging & Standardized Error Handling | `✅ Complete` |
+| **Day 11** | Unit Testing & Mocking (Pytest & Service Layer Isolation) | `✅ Complete` |
+| **Day 12** | Integration & End-to-End API Testing (Separate Test DB & 76% Coverage) | `✅ Complete` |
 
 ---
 
@@ -101,13 +106,89 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
   * Standard members are checked against the `project_members` repository to ensure membership.
   * Unauthorized requests are rejected with `HTTP 403 Forbidden`.
 
-### Day 9 — Validation, Filtering, Pagination, Search & Sorting
-* **Task Priority & Schema Migration:** Added `priority` (`low`, `medium`, `high`, `urgent`) to the `Task` model and ran Alembic migration `8fc07d24f988_add_task_priority.py`.
-* **Validation & Schemas Clean-up:** Enforced strict Pydantic validation on create, update, and response schemas. Protected sensitive fields (`id`, `project_id`, `role`, `is_active`, `created_at`) from user mutation.
-* **Production-Style Pagination:** Implemented generic `PaginatedResponse[T]` supporting query parameters `?page=1&page_size=20` (capped at max 100) returning `items`, `total`, `page`, `page_size`, and `total_pages`.
-* **Dynamic Multi-Field Filtering:** Added filter support for `?status=`, `?priority=`, and `?assigned_to=` with dynamic query building.
-* **Search Capabilities:** Implemented case-insensitive search (`?search=`) across task title and description using SQLAlchemy `ilike` and `or_`.
-* **Sorting & Whitelist Security:** Supported `?sort_by=` and `?sort_order=asc|desc` with strict server-side whitelisting (`created_at`, `due_date`, `priority`, `status`, `title`, `id`) returning `HTTP 400 Bad Request` on invalid fields.
+### Day 9 — Advanced Querying: Filtering, Sorting, Pagination & Search
+* Added multi-field task filtering (`status`, `priority`, `assigned_to`).
+* Implemented case-insensitive text search across task titles and descriptions.
+* Added dynamic multi-column sorting with configurable sort order (`asc` / `desc`).
+* Implemented generic standard pagination metadata (`page`, `page_size`, `total_items`, `total_pages`).
+
+### Day 10 — Middleware, Logging & Global Error Handling
+* **Request ID Middleware:** Attached a unique `X-Request-ID` UUID to every incoming HTTP request and response header.
+* **Structured Logging Middleware:** Logs method, path, HTTP status, request duration, and user ID.
+* **Standardized Exception Handlers:** Centralized error response format across validation errors (`422`), custom application exceptions (`400`, `401`, `403`, `404`, `409`), and uncaught internal server errors (`500`).
+
+### Day 11 — Unit Testing & Mocking
+* Implemented isolated unit test suites using `pytest` and `unittest.mock`.
+* Mocked database sessions and repositories to thoroughly test core business logic in service layers (`auth_service`, `project_service`, `task_service`, `project_member_service`).
+
+### Day 12 — Integration & End-to-End API Testing
+* **Isolated Test Database:** Configured independent test database runner ensuring test executions never touch Development or Production databases.
+* **FastAPI Test Client (`HTTPX`):** Configured automated test fixtures with FastAPI `TestClient` overriding `get_db`.
+* **Complete E2E Lifecycle Testing:**
+  $$\text{Register} \longrightarrow \text{Login} \longrightarrow \text{Create Project} \longrightarrow \text{Add Member} \longrightarrow \text{Create Task} \longrightarrow \text{Add Comment} \longrightarrow \text{Get Project Summary}$$
+* **Status Code Coverage:** Validated HTTP status codes `200 OK`, `201 Created`, `204 No Content`, `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`, `409 Conflict`, and `422 Unprocessable Content`.
+* **Coverage:** Achieved **76%+ code coverage** across the application.
+
+---
+
+## 🧪 Testing & Code Coverage
+
+### Run Full Test Suite
+```bash
+pytest
+```
+
+### Run Integration Tests Only
+```bash
+pytest tests/integration -v
+```
+
+### Run Tests with Coverage Report
+```bash
+pytest --cov=app --cov-report=term-missing
+```
+
+```text
+---------- coverage: platform win32, python 3.13.13 ----------
+Name                                             Stmts   Miss  Cover
+--------------------------------------------------------------------
+app\core\error_handlers.py                          30      2    93%
+app\core\exceptions.py                              28      1    96%
+app\core\middleware.py                              36      2    94%
+app\core\security.py                                53      8    85%
+app\db\base.py                                       3      0   100%
+app\db\session.py                                   13      4    69%
+app\dependencies\authorization.py                   23     10    57%
+app\main.py                                        142     37    74%
+app\models\comment.py                               12      0   100%
+app\models\project.py                               15      0   100%
+app\models\project_member.py                        12      0   100%
+app\models\refresh_token.py                         12      0   100%
+app\models\task.py                                  16      0   100%
+app\models\user.py                                  15      0   100%
+app\repositories\comment_repository.py              12      3    75%
+app\repositories\project_member_repository.py       19      5    74%
+app\repositories\project_repository.py              22      8    64%
+app\repositories\project_summary_repository.py      13      0   100%
+app\repositories\refresh_token_repository.py        16      5    69%
+app\repositories\task_repository.py                 39     23    41%
+app\repositories\user_repository.py                 16      0   100%
+app\schemas\auth.py                                 19      0   100%
+app\schemas\comment.py                              12      0   100%
+app\schemas\pagination.py                            9      0   100%
+app\schemas\project.py                              16      0   100%
+app\schemas\project_member.py                       12      0   100%
+app\schemas\project_summary.py                      10      0   100%
+app\schemas\task.py                                 31      0   100%
+app\services\auth_service.py                        63     33    48%
+app\services\comment_service.py                     20      7    65%
+app\services\project_member_service.py              28      9    68%
+app\services\project_service.py                     45     20    56%
+app\services\project_summary_service.py              9      1    89%
+app\services\task_service.py                        52     35    33%
+--------------------------------------------------------------------
+TOTAL                                              873    213    76%
+```
 
 ---
 
@@ -151,11 +232,11 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 | `DELETE` | `/api/v1/projects/{project_id}/members/{user_id}` | Remove user from project | Public / System |
 
 ### ✅ Tasks (`/api/v1/projects/{project_id}/tasks`)
-| Method | Endpoint | Description | Query Parameters / Features |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/projects/{project_id}/tasks` | Get paginated, filtered, searchable & sorted tasks | `page`, `page_size`, `status`, `priority`, `assigned_to`, `search`, `sort_by`, `sort_order` |
-| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project (with priority) | Body: `TaskCreate` |
-| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task | - |
+| Method | Endpoint | Description | Access |
+| :--- | :--- | :--- | :---: |
+| `GET` | `/api/v1/projects/{project_id}/tasks` | Get all tasks for a project (Filter, Sort, Search, Paginate) | Public / System |
+| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project | Public / System |
+| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task | Public / System |
 
 ### 💬 Comments (`/api/v1/projects/{project_id}/tasks/{task_id}/comments`)
 | Method | Endpoint | Description | Access |
@@ -195,6 +276,9 @@ team-project-api/
 │
 ├── app/
 │   ├── core/
+│   │   ├── error_handlers.py          # Global exception handlers
+│   │   ├── exceptions.py              # Custom API exceptions
+│   │   ├── middleware.py              # Request ID & logging middleware
 │   │   └── security.py                # Password hashing, JWT creation/verification, token utils
 │   │
 │   ├── db/
@@ -206,57 +290,65 @@ team-project-api/
 │   │   └── authorization.py           # Role checking (RBAC) & project access dependencies
 │   │
 │   ├── models/
-│   │   ├── project.py                 # Project ORM model
-│   │   ├── user.py                    # User ORM model
-│   │   ├── task.py                    # Task ORM model (with priority)
 │   │   ├── comment.py                 # Comment ORM model
+│   │   ├── project.py                 # Project ORM model
 │   │   ├── project_member.py          # ProjectMember junction model
-│   │   └── refresh_token.py           # RefreshToken ORM model
+│   │   ├── refresh_token.py           # RefreshToken ORM model
+│   │   ├── task.py                    # Task ORM model
+│   │   └── user.py                    # User ORM model
 │   │
 │   ├── repositories/
-│   │   ├── project_repository.py      # Project DB queries
-│   │   ├── task_repository.py         # Task DB queries (pagination, filters, search, sorting)
 │   │   ├── comment_repository.py      # Comment DB queries
 │   │   ├── project_member_repository.py # Project membership DB queries
+│   │   ├── project_repository.py      # Project DB queries
 │   │   ├── project_summary_repository.py# Analytics & aggregation queries
 │   │   ├── refresh_token_repository.py# Refresh token DB queries
+│   │   ├── task_repository.py         # Task DB queries
 │   │   └── user_repository.py         # User DB queries
 │   │
 │   ├── schemas/
 │   │   ├── auth.py                    # Auth request & response schemas
-│   │   ├── user.py                    # User safe response & update schemas
-│   │   ├── project.py                 # Project Pydantic schemas
-│   │   ├── task.py                    # Task Pydantic schemas (with priority)
-│   │   ├── pagination.py              # Generic PaginatedResponse schema
 │   │   ├── comment.py                 # Comment Pydantic schemas
+│   │   ├── pagination.py              # Generic pagination response schemas
+│   │   ├── project.py                 # Project Pydantic schemas
 │   │   ├── project_member.py          # Membership schemas
-│   │   └── project_summary.py         # Project analytics response schema
+│   │   ├── project_summary.py         # Project analytics response schema
+│   │   └── task.py                    # Task Pydantic schemas
 │   │
 │   ├── services/
 │   │   ├── auth_service.py            # Registration, login, token rotation logic
-│   │   ├── project_service.py         # Project business logic
-│   │   ├── task_service.py            # Task business logic (validation, sorting whitelist)
 │   │   ├── comment_service.py         # Comment business logic
 │   │   ├── project_member_service.py  # Member assignment logic
-│   │   └── project_summary_service.py # Aggregation service
+│   │   ├── project_service.py         # Project business logic
+│   │   ├── project_summary_service.py # Aggregation service
+│   │   └── task_service.py            # Task business logic
 │   │
 │   └── main.py                        # FastAPI application instance & routing
 │
+├── tests/
+│   ├── integration/
+│   │   ├── __init__.py
+│   │   ├── test_auth.py               # Integration tests for auth routes
+│   │   ├── test_comments.py           # Integration tests for comments
+│   │   ├── test_e2e_flow.py           # End-to-End full user & project workflow
+│   │   ├── test_members.py            # Integration tests for project members
+│   │   ├── test_projects.py           # Integration tests for project CRUD & RBAC
+│   │   └── test_tasks.py              # Integration tests for task routes
+│   │
+│   ├── conftest.py                    # Mock fixtures & TestClient / DB session fixtures
+│   ├── test_auth_service.py           # Service unit tests
+│   ├── test_project_member_service.py # Member service unit tests
+│   ├── test_project_service.py        # Project service unit tests
+│   └── test_task_service.py           # Task service unit tests
+│
 ├── alembic/
 │   ├── versions/
-│   │   ├── 1b07815f2c08_001_create_projects.py
-│   │   ├── a2dfe78749d3_002_create_users.py
-│   │   ├── d00bc0b48ff3_003_add_client_name.py
-│   │   ├── 92367f39c842_add_tasks_and_comments.py
-│   │   ├── 6944abf37c78_add_project_members.py
-│   │   ├── fc1d00a5b271_add_refresh_tokens.py
-│   │   └── 8fc07d24f988_add_task_priority.py
-│   │
 │   ├── env.py
 │   └── script.py.mako
 │
 ├── .env.example
 ├── alembic.ini
+├── pytest.ini
 ├── requirements.txt
 └── README.md
 ```
@@ -287,9 +379,11 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 ```env
 DATABASE_URL=postgresql+psycopg://<username>:<password>@<host>/<database>?sslmode=require
+TEST_DATABASE_URL=sqlite:///:memory:
 JWT_SECRET_KEY=your_super_secret_jwt_key
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000
 ```
 
 ### 3. Run Migrations & Start Server

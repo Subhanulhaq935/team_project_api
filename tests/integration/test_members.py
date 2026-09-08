@@ -1,57 +1,56 @@
-def test_add_project_member_success(client):
-    # Create User 1 (Project Creator) & User 2 (Member)
-    u1 = client.post("/api/v1/auth/register", json={
-        "firstname": "Owner", "lastname": "One",
-        "email": "owner@example.com", "password": "Password123!"
-    }).json()["user_id"]
+def test_add_project_member_success(client, create_user):
+    mgr = create_user("owner@example.com", role="manager")
+    dev = create_user("dev@example.com", role="user")
 
-    u2 = client.post("/api/v1/auth/register", json={
-        "firstname": "Dev", "lastname": "Two",
-        "email": "dev@example.com", "password": "Password123!"
-    }).json()["user_id"]
+    proj = client.post(
+        "/api/v1/projects",
+        json={"name": "Team Collab"},
+        headers=mgr["headers"]
+    ).json()
 
-    proj = client.post("/api/v1/projects", json={
-        "name": "Team Collab", "user_id": u1
-    }).json()
-
-    # Add u2 as developer
-    response = client.post(f"/api/v1/projects/{proj['id']}/members", json={
-        "user_id": u2,
-        "project_role": "DEVELOPER"
-    })
+    # Add dev as developer
+    response = client.post(
+        f"/api/v1/projects/{proj['id']}/members",
+        json={
+            "user_id": dev["id"],
+            "project_role": "DEVELOPER"
+        },
+        headers=mgr["headers"]
+    )
     assert response.status_code == 201
-    assert response.json()["user_id"] == u2
+    assert response.json()["user_id"] == dev["id"]
 
 
-def test_add_member_duplicate_conflict(client):
-    u1 = client.post("/api/v1/auth/register", json={
-        "firstname": "Owner", "lastname": "A",
-        "email": "owner_a@example.com", "password": "Password123!"
-    }).json()["user_id"]
+def test_add_member_duplicate_conflict(client, create_user):
+    mgr = create_user("owner_a@example.com", role="manager")
+    dev = create_user("dev_b@example.com", role="user")
 
-    u2 = client.post("/api/v1/auth/register", json={
-        "firstname": "Dev", "lastname": "B",
-        "email": "dev_b@example.com", "password": "Password123!"
-    }).json()["user_id"]
+    proj = client.post(
+        "/api/v1/projects",
+        json={"name": "Duplicate Test"},
+        headers=mgr["headers"]
+    ).json()
 
-    proj = client.post("/api/v1/projects", json={
-        "name": "Duplicate Test", "user_id": u1
-    }).json()
-
-    client.post(f"/api/v1/projects/{proj['id']}/members", json={
-        "user_id": u2, "project_role": "DEVELOPER"
-    })
+    client.post(
+        f"/api/v1/projects/{proj['id']}/members",
+        json={"user_id": dev["id"], "project_role": "DEVELOPER"},
+        headers=mgr["headers"]
+    )
 
     # Adding again should return 409 Conflict
-    response = client.post(f"/api/v1/projects/{proj['id']}/members", json={
-        "user_id": u2, "project_role": "DEVELOPER"
-    })
+    response = client.post(
+        f"/api/v1/projects/{proj['id']}/members",
+        json={"user_id": dev["id"], "project_role": "DEVELOPER"},
+        headers=mgr["headers"]
+    )
     assert response.status_code == 409
 
 
-def test_add_member_invalid_project_or_user(client):
-    response = client.post("/api/v1/projects/9999/members", json={
-        "user_id": 9999,
-        "project_role": "DEVELOPER"
-    })
+def test_add_member_invalid_project_or_user(client, create_user):
+    admin = create_user("admin_member@example.com", role="admin")
+    response = client.post(
+        "/api/v1/projects/9999/members",
+        json={"user_id": 9999, "project_role": "DEVELOPER"},
+        headers=admin["headers"]
+    )
     assert response.status_code == 404

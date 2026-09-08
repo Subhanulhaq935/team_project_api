@@ -154,24 +154,40 @@ def get_project(
     return project
 
 
-# Create a new Project
+# Create a new Project (Admin & Manager only, bound to authenticated user)
 @app.post("/api/v1/projects", status_code=status.HTTP_201_CREATED, response_model=ProjectResponse)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    return project_service.create_project(db, project)
+def create_project(
+    project: ProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "manager"))
+):
+    created_project = project_service.create_project(db, project, creator_user_id=current_user.id)
+    if created_project is None:
+        raise BadRequestException(code="USER_NOT_FOUND", message="User associated with project was not found")
+    return created_project
 
 
-# Update a project
+# Update a project (Admin & Assigned Project Manager)
 @app.patch("/api/v1/projects/{project_id}", response_model=ProjectResponse)
-def update_project(project_id: int, project: ProjectUpdate, db: Session = Depends(get_db)):
+def update_project(
+    project_id: int,
+    project: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
+):
     updated_project = project_service.update_project(db, project_id, project)
     if updated_project is None:
         raise ProjectNotFoundException()
     return updated_project
 
 
-# Delete a project
+# Delete a project (Admin only)
 @app.delete("/api/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin"))
+):
     delete = project_service.delete_project(db, project_id)
     if delete is None:
         raise ProjectNotFoundException()
@@ -194,10 +210,11 @@ def get_tasks(
     status: str | None = Query(None, description="Filter by status (e.g. pending, completed)"),
     priority: str | None = Query(None, description="Filter by priority (e.g. low, medium, high, urgent)"),
     assigned_to: int | None = Query(None, description="Filter by assigned user ID"),
-    search: str | None = Query(None,max_length=100, description="Search by title or description"),
+    search: str | None = Query(None, max_length=100, description="Search by title or description"),
     sort_by: str = Query("created_at", description="Sort by field (created_at, due_date, priority, status, title, id)"),
     sort_order: Literal["asc", "desc"] = Query("desc", description="Sort order (asc or desc)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     try:
         return task_service.get_tasks_by_project(
@@ -225,7 +242,8 @@ def get_tasks(
 def create_task(
     project_id: int,
     task: TaskCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     return task_service.create_task(db, project_id, task)
 
@@ -238,7 +256,8 @@ def create_task(
 def get_task(
     project_id: int,
     task_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     task = task_service.get_task_by_id(db, project_id, task_id)
     if task is None:
@@ -258,7 +277,8 @@ def get_task(
 def get_comments(
     project_id: int,
     task_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     comments = comment_service.get_comments_by_task(db, project_id, task_id)
     if comments is None:
@@ -266,7 +286,7 @@ def get_comments(
     return comments
 
 
-# Create comment on a task
+# Create comment on a task (Authenticated project member is author)
 @app.post(
     "/api/v1/projects/{project_id}/tasks/{task_id}/comments",
     status_code=status.HTTP_201_CREATED,
@@ -275,15 +295,15 @@ def get_comments(
 def create_comment(
     project_id: int,
     task_id: int,
-    user_id: int,
     comment: CommentCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     created_comment = comment_service.create_comment(
         db,
         project_id,
         task_id,
-        user_id,
+        current_user.id,
         comment
     )
     if created_comment is None:
@@ -302,7 +322,8 @@ def create_comment(
 )
 def get_project_members(
     project_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     members = project_member_service.get_project_members(db, project_id)
     if members is None:
@@ -319,7 +340,8 @@ def get_project_members(
 def add_project_member(
     project_id: int,
     member: ProjectMemberCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     result = project_member_service.add_project_member(db, project_id, member)
     if result is None:
@@ -337,7 +359,8 @@ def add_project_member(
 def remove_project_member(
     project_id: int,
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     result = project_member_service.remove_project_member(db, project_id, user_id)
     if result is None:
@@ -355,7 +378,8 @@ def remove_project_member(
 )
 def get_project_summary(
     project_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_project_access)
 ):
     summary = project_summary_service.get_project_summary(db, project_id)
     if summary is None:

@@ -69,3 +69,31 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def create_user(db_session):
+    """Helper fixture to create authenticated users with custom roles (admin, manager, user)."""
+    def _create_user(email: str = "admin@example.com", role: str = "manager", firstname: str = "Test", lastname: str = "User"):
+        from app.models.user import User
+        from app.core.security import hash_password, create_access_token
+        user = User(
+            firstname=firstname,
+            lastname=lastname,
+            email=email,
+            password_hash=hash_password("Password123!"),
+            role=role,
+            is_active=True
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        token = create_access_token(user_id=user.id, role=user.role)
+        return {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "token": token,
+            "headers": {"Authorization": f"Bearer {token}"}
+        }
+    return _create_user

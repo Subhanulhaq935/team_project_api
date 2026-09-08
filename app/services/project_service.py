@@ -28,13 +28,18 @@ def get_project_by_id(db: Session, project_id: int):
 
 def create_project(
     db: Session,
-    project_data: ProjectCreate
+    project_data: ProjectCreate,
+    creator_user_id: int | None = None
 ):
     try:
+        user_id = project_data.user_id or creator_user_id
+        if user_id is None:
+            return None
+
         # Check user exists
         user = user_repository.get_user_by_id(
             db,
-            project_data.user_id
+            user_id
         )
 
         if user is None:
@@ -55,7 +60,7 @@ def create_project(
         # Create ProjectMember
         project_member = ProjectMember(
             project_id=project.id,
-            user_id=project_data.user_id,
+            user_id=user_id,
             project_role="PROJECT_MANAGER"
         )
 

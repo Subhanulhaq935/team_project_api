@@ -31,6 +31,12 @@ class Task(Base):
         default="pending"
     )
 
+    priority: Mapped[str] = mapped_column(
+    String(50),
+    default="medium",
+    nullable=False
+    )
+
     assigned_to_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True

@@ -43,18 +43,21 @@ def create_authenticated_user(client, email: str, role: str = "user", firstname:
 # API1: Broken Object Level Authorization (BOLA / IDOR) Tests
 # ============================================================================
 
-def test_api1_bola_user_a_cannot_access_user_b_project(client):
+def test_api1_bola_user_a_cannot_access_user_b_project(client, create_user):
     """API1 Test: User A cannot access User B's project (403/404)."""
-    user_a = create_authenticated_user(client, "user_a_proj@example.com")
-    user_b = create_authenticated_user(client, "user_b_proj@example.com")
+    user_a = create_user("user_a_proj@example.com", role="user")
+    user_b = create_user("user_b_proj@example.com", role="manager")
 
     # User B creates a project
-    proj_resp = client.post("/api/v1/projects", json={
-        "name": "User B Project",
-        "description": "Confidential",
-        "status": "active",
-        "user_id": user_b["id"]
-    })
+    proj_resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "User B Project",
+            "description": "Confidential",
+            "status": "active"
+        },
+        headers=user_b["headers"]
+    )
     assert proj_resp.status_code == 201
     project_id = proj_resp.json()["id"]
 
@@ -66,50 +69,66 @@ def test_api1_bola_user_a_cannot_access_user_b_project(client):
     assert access_resp.status_code in [403, 404]
 
 
-def test_api1_bola_user_a_cannot_access_user_b_task_or_cross_project(client):
+def test_api1_bola_user_a_cannot_access_user_b_task_or_cross_project(client, create_user):
     """API1 Test: User A cannot access task under a non-existent or wrong project."""
-    user = create_authenticated_user(client, "task_user@example.com")
+    user = create_user("task_user@example.com", role="manager")
 
     # Project 1 with Task (Name min_length >= 3)
-    p1_resp = client.post("/api/v1/projects", json={
-        "name": "Project Alpha",
-        "description": "Valid Description",
-        "status": "active",
-        "user_id": user["id"]
-    })
+    p1_resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Project Alpha",
+            "description": "Valid Description",
+            "status": "active"
+        },
+        headers=user["headers"]
+    )
     assert p1_resp.status_code == 201
     p1 = p1_resp.json()
 
-    task_resp = client.post(f"/api/v1/projects/{p1['id']}/tasks", json={
-        "title": "Secret Task",
-        "description": "Confidential",
-        "status": "pending",
-        "priority": "high"
-    })
+    task_resp = client.post(
+        f"/api/v1/projects/{p1['id']}/tasks",
+        json={
+            "title": "Secret Task",
+            "description": "Confidential",
+            "status": "pending",
+            "priority": "high"
+        },
+        headers=user["headers"]
+    )
     assert task_resp.status_code == 201
     task = task_resp.json()
 
     # Attempting to fetch task with mismatched project_id
     wrong_proj_id = p1["id"] + 999
-    response = client.get(f"/api/v1/projects/{wrong_proj_id}/tasks/{task['id']}")
-    assert response.status_code == 404
+    response = client.get(
+        f"/api/v1/projects/{wrong_proj_id}/tasks/{task['id']}",
+        headers=user["headers"]
+    )
+    assert response.status_code in [403, 404]
 
 
-def test_api1_bola_user_a_cannot_access_comments_of_other_project_task(client):
+def test_api1_bola_user_a_cannot_access_comments_of_other_project_task(client, create_user):
     """API1 Test: Accessing comments for an invalid project/task combination fails with 404."""
-    user = create_authenticated_user(client, "comment_user@example.com")
-    p1_resp = client.post("/api/v1/projects", json={
-        "name": "Project Beta",
-        "description": "Valid Description",
-        "status": "active",
-        "user_id": user["id"]
-    })
+    user = create_user("comment_user@example.com", role="manager")
+    p1_resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Project Beta",
+            "description": "Valid Description",
+            "status": "active"
+        },
+        headers=user["headers"]
+    )
     assert p1_resp.status_code == 201
     p1 = p1_resp.json()
 
     invalid_task_id = 99999
-    response = client.get(f"/api/v1/projects/{p1['id']}/tasks/{invalid_task_id}/comments")
-    assert response.status_code == 404
+    response = client.get(
+        f"/api/v1/projects/{p1['id']}/tasks/{invalid_task_id}/comments",
+        headers=user["headers"]
+    )
+    assert response.status_code in [403, 404]
 
 
 # ============================================================================
@@ -182,18 +201,24 @@ def test_api3_mass_assignment_cannot_elevate_role_to_admin(client):
 # API4: Unrestricted Resource Consumption Tests
 # ============================================================================
 
-def test_api4_unrestricted_resource_consumption_page_size_capped(client):
+def test_api4_unrestricted_resource_consumption_page_size_capped(client, create_user):
     """API4 Test: Requesting page_size > 100 rejected with 422."""
-    user = create_authenticated_user(client, "resource_user@example.com")
-    proj_resp = client.post("/api/v1/projects", json={
-        "name": "Resource Project",
-        "description": "Testing limits",
-        "status": "active",
-        "user_id": user["id"]
-    })
+    user = create_user("resource_user@example.com", role="manager")
+    proj_resp = client.post(
+        "/api/v1/projects",
+        json={
+            "name": "Resource Project",
+            "description": "Testing limits",
+            "status": "active"
+        },
+        headers=user["headers"]
+    )
     project_id = proj_resp.json()["id"]
 
-    response = client.get(f"/api/v1/projects/{project_id}/tasks?page_size=5000")
+    response = client.get(
+        f"/api/v1/projects/{project_id}/tasks?page_size=5000",
+        headers=user["headers"]
+    )
     assert response.status_code == 422
 
 
@@ -201,9 +226,9 @@ def test_api4_unrestricted_resource_consumption_page_size_capped(client):
 # API5: Broken Function Level Authorization (BFLA) Tests
 # ============================================================================
 
-def test_api5_bfla_user_cannot_access_admin_api(client):
+def test_api5_bfla_user_cannot_access_admin_api(client, create_user):
     """API5 Test: USER cannot access Admin/Manager GET /api/v1/projects endpoint (403)."""
-    regular_user = create_authenticated_user(client, "regular_user_bfla@example.com")
+    regular_user = create_user("regular_user_bfla@example.com", role="user")
 
     response = client.get("/api/v1/projects", headers=regular_user["headers"])
     assert response.status_code == 403

@@ -1,20 +1,11 @@
-from logging.config import fileConfig
 import os
+from logging.config import fileConfig
 
 from dotenv import load_dotenv
-
-from sqlalchemy import create_engine
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
-
 from app.db.base import Base
-from app.models.project import Project
-from app.models.user import User
-from app.models.task import Task
-from app.models.comment import Comment
-from app.models.project_member import ProjectMember
-from app.models.refresh_token import RefreshToken
 
 load_dotenv()
 
@@ -24,6 +15,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
 
 def run_migrations_offline() -> None:
     url = os.getenv("DATABASE_URL")
@@ -38,24 +30,20 @@ def run_migrations_offline() -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+
 def run_migrations_online() -> None:
-    database_url = os.getenv("DATABASE_URL")
+    database_url: str = os.getenv("DATABASE_URL") or "sqlite:///./dev.db"
 
     print("ALEMBIC DATABASE:", database_url)
 
-    connectable = create_engine(
-        database_url,
-        poolclass=pool.NullPool
-    )
+    connectable = create_engine(database_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 # --- Missing execution dispatch ---
 if context.is_offline_mode():

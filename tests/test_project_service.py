@@ -1,8 +1,9 @@
-from unittest.mock import patch, MagicMock
-from app.services import project_service
-from app.schemas.project import ProjectCreate, ProjectUpdate
-from app.models.user import User
+from unittest.mock import patch
+
 from app.models.project import Project
+from app.models.user import User
+from app.schemas.project import ProjectCreate, ProjectUpdate
+from app.services import project_service
 
 
 # Test 1: Successful Project Creation
@@ -70,12 +71,7 @@ def test_get_project_not_found(mock_get_project, mock_db):
 @patch("app.services.project_service.project_repository.update_project")
 @patch("app.services.project_service.project_repository.get_project_by_id")
 def test_update_project_success(mock_get_project, mock_update_project, mock_db):
-    fake_project = Project(
-        id=1,
-        name="Old Name",
-        description="Old Desc",
-        status="ACTIVE"
-    )
+    fake_project = Project(id=1, name="Old Name", description="Old Desc", status="ACTIVE")
     mock_get_project.return_value = fake_project
     mock_update_project.return_value = fake_project
 

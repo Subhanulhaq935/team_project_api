@@ -1,9 +1,11 @@
+from typing import TypeVar
+
 import httpx
-from pydantic import BaseModel, ValidationError
-from typing import Type, TypeVar
 from fastapi import HTTPException, status
+from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
+
 
 class SafeAPIClient:
     """
@@ -22,17 +24,17 @@ class SafeAPIClient:
             base_url=self.base_url,
             verify=True,  # Mandatory TLS Certificate Validation
             timeout=httpx.Timeout(5.0, connect=2.0),
-            headers={"User-Agent": "TeamProjectAPI-Integration/1.0"}
+            headers={"User-Agent": "TeamProjectAPI-Integration/1.0"},
         )
 
-    async def get(self, endpoint: str, response_schema: Type[T]) -> T:
+    async def get(self, endpoint: str, response_schema: type[T]) -> T:
         try:
             # Stream response to enforce size limits before buffering into memory
             async with self.client.stream("GET", endpoint) as response:
                 if response.status_code >= 400:
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=f"Upstream service returned error code: {response.status_code}"
+                        detail=f"Upstream service returned error code: {response.status_code}",
                     )
 
                 content = bytearray()
@@ -41,18 +43,19 @@ class SafeAPIClient:
                     if len(content) > self.MAX_RESPONSE_BYTES:
                         raise HTTPException(
                             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                            detail="Upstream response payload exceeded maximum allowed limit (2MB)."
+                            detail="Upstream response payload exceeded maximum allowed limit (2MB).",
                         )
 
                 # Parse JSON
                 try:
                     import json
+
                     json_data = json.loads(content.decode("utf-8"))
-                except Exception:
+                except Exception as err:
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail="Upstream service returned non-JSON payload."
-                    )
+                        detail="Upstream service returned non-JSON payload.",
+                    ) from err
 
                 # Validate data against Pydantic schema
                 try:
@@ -60,19 +63,18 @@ class SafeAPIClient:
                 except ValidationError as err:
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=f"Upstream payload validation failed schema expectations: {err.errors()}"
-                    )
+                        detail=f"Upstream payload validation failed schema expectations: {err.errors()}",
+                    ) from err
 
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Upstream request timed out."
-            )
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Upstream request timed out."
+            ) from exc
         except httpx.RequestError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Network error communicating with upstream service: {str(exc)}"
-            )
+                detail=f"Network error communicating with upstream service: {exc!s}",
+            ) from exc
 
     async def close(self):
         await self.client.aclose()

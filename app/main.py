@@ -1,41 +1,44 @@
 import os
 from typing import Literal
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, status, HTTPException, Depends, Query
+from fastapi import Depends, FastAPI, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
-from app.db.session import engine, get_db
-from app.models.project import Project
-from app.models.task import Task
-from app.models.user import User
-from app.models.comment import Comment
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
-from app.schemas.task import TaskCreate, TaskResponse
-from app.schemas.comment import CommentCreate, CommentResponse
-from app.schemas.project_member import ProjectMemberCreate, ProjectMemberResponse
-from app.schemas.project_summary import ProjectSummaryResponse
-from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshTokenRequest, RefreshTokenResponse
-from app.schemas.pagination import PaginatedResponse
-from app.services import (
-    project_service,
-    task_service,
-    comment_service,
-    project_member_service,
-    project_summary_service,
-    auth_service,
-)
-from app.core.security import get_current_user
-from app.dependencies.authorization import require_roles, require_project_access
-from app.core.middleware import RequestIDMiddleware, LoggingMiddleware
 from app.core.error_handlers import register_error_handlers
 from app.core.exceptions import (
-    ProjectNotFoundException,
-    TaskNotFoundException,
+    BadRequestException,
     DuplicateMemberException,
     InvalidCredentialsException,
-    BadRequestException,
+    ProjectNotFoundException,
+    TaskNotFoundException,
+)
+from app.core.middleware import LoggingMiddleware, RequestIDMiddleware
+from app.core.security import get_current_user
+from app.db.session import get_db
+from app.dependencies.authorization import require_project_access, require_roles
+from app.models.user import User
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    RegisterRequest,
+    TokenResponse,
+)
+from app.schemas.comment import CommentCreate, CommentResponse
+from app.schemas.pagination import PaginatedResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.schemas.project_member import ProjectMemberCreate, ProjectMemberResponse
+from app.schemas.project_summary import ProjectSummaryResponse
+from app.schemas.task import TaskCreate, TaskResponse
+from app.services import (
+    auth_service,
+    comment_service,
+    project_member_service,
+    project_service,
+    project_summary_service,
+    task_service,
 )
 
 load_dotenv()
@@ -82,7 +85,7 @@ app = FastAPI(
     title="Team Project Management API",
     description="""
     🚀 **Production-grade REST API** built with FastAPI and PostgreSQL.
-    
+
     ### Features:
     * 🔐 **Authentication & Security**: JWT Access and Refresh Tokens with Argon2id hashing.
     * 👥 **Role-Based Access Control (RBAC)**: Admin, Manager, and Member permissions.
@@ -103,7 +106,7 @@ register_error_handlers(app)
 # 2. Allowed Origins from .env
 allowed_origins_raw = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000"
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000",
 )
 allowed_origins = [origin.strip() for origin in allowed_origins_raw.split(",") if origin.strip()]
 
@@ -129,24 +132,21 @@ def health():
 # Project Routes
 # ==========================================
 
+
 # Get all projects
 @app.get("/api/v1/projects", response_model=list[ProjectResponse])
 def get_projects(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "manager"))
+    db: Session = Depends(get_db), current_user: User = Depends(require_roles("admin", "manager"))
 ):
     return project_service.get_projects(db)
 
 
 # Get project by id
-@app.get(
-    "/api/v1/projects/{project_id}",
-    response_model=ProjectResponse
-)
+@app.get("/api/v1/projects/{project_id}", response_model=ProjectResponse)
 def get_project(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     project = project_service.get_project_by_id(db, project_id)
     if project is None:
@@ -159,11 +159,13 @@ def get_project(
 def create_project(
     project: ProjectCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "manager"))
+    current_user: User = Depends(require_roles("admin", "manager")),
 ):
     created_project = project_service.create_project(db, project, creator_user_id=current_user.id)
     if created_project is None:
-        raise BadRequestException(code="USER_NOT_FOUND", message="User associated with project was not found")
+        raise BadRequestException(
+            code="USER_NOT_FOUND", message="User associated with project was not found"
+        )
     return created_project
 
 
@@ -173,7 +175,7 @@ def update_project(
     project_id: int,
     project: ProjectUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     updated_project = project_service.update_project(db, project_id, project)
     if updated_project is None:
@@ -186,7 +188,7 @@ def update_project(
 def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin"))
+    current_user: User = Depends(require_roles("admin")),
 ):
     delete = project_service.delete_project(db, project_id)
     if delete is None:
@@ -198,23 +200,26 @@ def delete_project(
 # Task Routes
 # ==========================================
 
+
 # Get all tasks of a project (Paginated, Filtered, Searchable & Sorted)
-@app.get(
-    "/api/v1/projects/{project_id}/tasks",
-    response_model=PaginatedResponse[TaskResponse]
-)
+@app.get("/api/v1/projects/{project_id}/tasks", response_model=PaginatedResponse[TaskResponse])
 def get_tasks(
     project_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     status: str | None = Query(None, description="Filter by status (e.g. pending, completed)"),
-    priority: str | None = Query(None, description="Filter by priority (e.g. low, medium, high, urgent)"),
+    priority: str | None = Query(
+        None, description="Filter by priority (e.g. low, medium, high, urgent)"
+    ),
     assigned_to: int | None = Query(None, description="Filter by assigned user ID"),
     search: str | None = Query(None, max_length=100, description="Search by title or description"),
-    sort_by: str = Query("created_at", description="Sort by field (created_at, due_date, priority, status, title, id)"),
+    sort_by: str = Query(
+        "created_at",
+        description="Sort by field (created_at, due_date, priority, status, title, id)",
+    ),
     sort_order: Literal["asc", "desc"] = Query("desc", description="Sort order (asc or desc)"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     try:
         return task_service.get_tasks_by_project(
@@ -227,37 +232,34 @@ def get_tasks(
             assigned_to=assigned_to,
             search=search,
             sort_by=sort_by,
-            sort_order=sort_order
+            sort_order=sort_order,
         )
     except ValueError as e:
-        raise BadRequestException(code="INVALID_QUERY_PARAMS", message=str(e))
+        raise BadRequestException(code="INVALID_QUERY_PARAMS", message=str(e)) from e
 
 
 # Create a task inside a project
 @app.post(
     "/api/v1/projects/{project_id}/tasks",
     status_code=status.HTTP_201_CREATED,
-    response_model=TaskResponse
+    response_model=TaskResponse,
 )
 def create_task(
     project_id: int,
     task: TaskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     return task_service.create_task(db, project_id, task)
 
 
 # Get a specific task of a project
-@app.get(
-    "/api/v1/projects/{project_id}/tasks/{task_id}",
-    response_model=TaskResponse
-)
+@app.get("/api/v1/projects/{project_id}/tasks/{task_id}", response_model=TaskResponse)
 def get_task(
     project_id: int,
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     task = task_service.get_task_by_id(db, project_id, task_id)
     if task is None:
@@ -269,16 +271,16 @@ def get_task(
 # Comments Routes
 # ==========================================
 
+
 # Get comments of a task
 @app.get(
-    "/api/v1/projects/{project_id}/tasks/{task_id}/comments",
-    response_model=list[CommentResponse]
+    "/api/v1/projects/{project_id}/tasks/{task_id}/comments", response_model=list[CommentResponse]
 )
 def get_comments(
     project_id: int,
     task_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     comments = comment_service.get_comments_by_task(db, project_id, task_id)
     if comments is None:
@@ -290,21 +292,17 @@ def get_comments(
 @app.post(
     "/api/v1/projects/{project_id}/tasks/{task_id}/comments",
     status_code=status.HTTP_201_CREATED,
-    response_model=CommentResponse
+    response_model=CommentResponse,
 )
 def create_comment(
     project_id: int,
     task_id: int,
     comment: CommentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     created_comment = comment_service.create_comment(
-        db,
-        project_id,
-        task_id,
-        current_user.id,
-        comment
+        db, project_id, task_id, current_user.id, comment
     )
     if created_comment is None:
         raise TaskNotFoundException("Task not found in this project")
@@ -315,15 +313,13 @@ def create_comment(
 # Project Member Routes
 # ==========================================
 
+
 # Get all members of a project
-@app.get(
-    "/api/v1/projects/{project_id}/members",
-    response_model=list[ProjectMemberResponse]
-)
+@app.get("/api/v1/projects/{project_id}/members", response_model=list[ProjectMemberResponse])
 def get_project_members(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     members = project_member_service.get_project_members(db, project_id)
     if members is None:
@@ -335,13 +331,13 @@ def get_project_members(
 @app.post(
     "/api/v1/projects/{project_id}/members",
     status_code=status.HTTP_201_CREATED,
-    response_model=ProjectMemberResponse
+    response_model=ProjectMemberResponse,
 )
 def add_project_member(
     project_id: int,
     member: ProjectMemberCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     result = project_member_service.add_project_member(db, project_id, member)
     if result is None:
@@ -353,14 +349,13 @@ def add_project_member(
 
 # Remove member from project
 @app.delete(
-    "/api/v1/projects/{project_id}/members/{user_id}",
-    status_code=status.HTTP_204_NO_CONTENT
+    "/api/v1/projects/{project_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 def remove_project_member(
     project_id: int,
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     result = project_member_service.remove_project_member(db, project_id, user_id)
     if result is None:
@@ -372,14 +367,12 @@ def remove_project_member(
 # Project Summary Route
 # ==========================================
 
-@app.get(
-    "/api/v1/projects/{project_id}/summary",
-    response_model=ProjectSummaryResponse
-)
+
+@app.get("/api/v1/projects/{project_id}/summary", response_model=ProjectSummaryResponse)
 def get_project_summary(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_project_access)
+    current_user: User = Depends(require_project_access),
 ):
     summary = project_summary_service.get_project_summary(db, project_id)
     if summary is None:
@@ -391,26 +384,18 @@ def get_project_summary(
 # Authentication Routes
 # ==========================================
 
+
 @app.post("/api/v1/auth/register", status_code=201)
-def register(
-    user_data: RegisterRequest,
-    db: Session = Depends(get_db)
-):
+def register(user_data: RegisterRequest, db: Session = Depends(get_db)):
     result = auth_service.register_user(db, user_data)
     if result == "already_exists":
         raise BadRequestException(code="USER_ALREADY_EXISTS", message="Email already registered")
 
-    return {
-        "message": "User registered successfully",
-        "user_id": result.id
-    }
+    return {"message": "User registered successfully", "user_id": result.id}
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
-def login(
-    user_data: LoginRequest,
-    db: Session = Depends(get_db)
-):
+def login(user_data: LoginRequest, db: Session = Depends(get_db)):
     result = auth_service.login_user(db, user_data)
     if result is None:
         raise InvalidCredentialsException()
@@ -418,34 +403,26 @@ def login(
     return {
         "access_token": result["access_token"],
         "refresh_token": result["refresh_token"],
-        "token_type": "bearer"
+        "token_type": "bearer",
     }
 
 
 # Protected Route
 @app.get("/api/v1/auth/me")
-def get_me(
-    current_user: User = Depends(get_current_user)
-):
+def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "firstname": current_user.firstname,
         "lastname": current_user.lastname,
         "email": current_user.email,
         "role": current_user.role,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
     }
 
 
 # Refresh Token Route
-@app.post(
-    "/api/v1/auth/refresh",
-    response_model=RefreshTokenResponse
-)
-def refresh_token(
-    token_data: RefreshTokenRequest,
-    db: Session = Depends(get_db)
-):
+@app.post("/api/v1/auth/refresh", response_model=RefreshTokenResponse)
+def refresh_token(token_data: RefreshTokenRequest, db: Session = Depends(get_db)):
     result = auth_service.refresh_access_token(db, token_data.refresh_token)
     if result is None:
         raise InvalidCredentialsException("Invalid or expired refresh token")
@@ -453,19 +430,14 @@ def refresh_token(
     return {
         "access_token": result["access_token"],
         "refresh_token": result["refresh_token"],
-        "token_type": "bearer"
+        "token_type": "bearer",
     }
 
 
 @app.post("/api/v1/auth/logout")
-def logout(
-    token_data: RefreshTokenRequest,
-    db: Session = Depends(get_db)
-):
+def logout(token_data: RefreshTokenRequest, db: Session = Depends(get_db)):
     result = auth_service.logout_user(db, token_data.refresh_token)
     if not result:
         raise InvalidCredentialsException("Invalid refresh token")
 
-    return {
-        "message": "Logged out successfully"
-    }
+    return {"message": "Logged out successfully"}

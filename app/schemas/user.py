@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 # Schema for updating profile (role, is_active, created_at excluded hain taake normal user inko change na kar sake)

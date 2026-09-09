@@ -107,4 +107,4 @@ jobs:
       # 13. Build Docker Image
       - name: 13. Build Docker Image
         run: |
-          docker build -t team-project-api:ci-test .
+          docker build --pull -t team-project-api:ci-test . || (sleep 5 && docker build -t team-project-api:ci-test .)

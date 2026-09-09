@@ -1,0 +1,39 @@
+# Virtual environment (compiled for host OS, not container)
+
+venv/
+.venv/
+env/
+
+# Python byte-code & cache
+
+**pycache**/
+_.pyc
+_.pyo
+\*.pyd
+
+# Testing & Coverage reports
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git history & configs
+
+.git/
+.gitignore
+
+# Environment & Secret files (NEVER bake secrets into Docker images)
+
+.env
+.env.\*
+!.env.example
+
+# IDE & Editor temporary files
+
+.vscode/
+.idea/
+\*.swp
+
+# Documentation & Assets not needed by API runtime
+
+docs/

@@ -129,4 +129,8 @@ no leaks found
 * Production `JWT_SECRET_KEY` should use a strong, randomly generated secret of at least 32 bytes.
 * `.env` files and other secrets must not be committed to Git.
 * CORS origins should be explicitly configured for production environments.
+<<<<<<< HEAD
 * Security tooling should be executed regularly as dependencies and source code evolve.
+=======
+* Security tooling should be executed regularly as dependencies and source code evolve.
+>>>>>>> development

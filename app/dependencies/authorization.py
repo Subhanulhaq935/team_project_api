@@ -1,21 +1,17 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import InsufficientPermissionsException
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.user import User
 from app.repositories import project_member_repository
-from app.core.exceptions import InsufficientPermissionsException
 
 
 def require_roles(*allowed_roles: str):
 
-    def role_checker(
-        current_user: User = Depends(get_current_user)
-    ):
-        if current_user.role.lower() not in [
-            role.lower() for role in allowed_roles
-        ]:
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role.lower() not in [role.lower() for role in allowed_roles]:
             raise InsufficientPermissionsException("Insufficient permissions")
 
         return current_user
@@ -24,20 +20,14 @@ def require_roles(*allowed_roles: str):
 
 
 def require_project_access(
-    project_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     # ADMIN can access every project
     if current_user.role.lower() == "admin":
         return current_user
 
     # Check whether user belongs to this project
-    project_member = project_member_repository.get_project_member(
-        db,
-        project_id,
-        current_user.id
-    )
+    project_member = project_member_repository.get_project_member(db, project_id, current_user.id)
 
     # User is not a member of this project
     if project_member is None:

@@ -1,12 +1,11 @@
 from sqlalchemy.orm import Session
 
-from app.repositories import project_repository
-from app.repositories import project_member_repository
-from app.repositories import user_repository
-
 from app.models.project import Project
 from app.models.project_member import ProjectMember
-
+from app.repositories import (
+    project_repository,
+    user_repository,
+)
 from app.schemas.project import ProjectCreate, ProjectUpdate
 
 
@@ -15,10 +14,7 @@ def get_projects(db: Session):
 
 
 def get_project_by_id(db: Session, project_id: int):
-    project = project_repository.get_project_by_id(
-        db,
-        project_id
-    )
+    project = project_repository.get_project_by_id(db, project_id)
 
     if project is None:
         return None
@@ -26,42 +22,28 @@ def get_project_by_id(db: Session, project_id: int):
     return project
 
 
-def create_project(
-    db: Session,
-    project_data: ProjectCreate,
-    creator_user_id: int | None = None
-):
+def create_project(db: Session, project_data: ProjectCreate, creator_user_id: int | None = None):
     try:
         user_id = project_data.user_id or creator_user_id
         if user_id is None:
             return None
 
         # Check user exists
-        user = user_repository.get_user_by_id(
-            db,
-            user_id
-        )
+        user = user_repository.get_user_by_id(db, user_id)
 
         if user is None:
             return None
 
         # Create Project
         project = Project(
-            name=project_data.name,
-            description=project_data.description,
-            status=project_data.status
+            name=project_data.name, description=project_data.description, status=project_data.status
         )
 
-        project_repository.create_project(
-            db,
-            project
-        )
+        project_repository.create_project(db, project)
 
         # Create ProjectMember
         project_member = ProjectMember(
-            project_id=project.id,
-            user_id=user_id,
-            project_role="PROJECT_MANAGER"
+            project_id=project.id, user_id=user_id, project_role="PROJECT_MANAGER"
         )
 
         db.add(project_member)
@@ -78,15 +60,8 @@ def create_project(
         raise
 
 
-def update_project(
-    db: Session,
-    project_id: int,
-    project_data: ProjectUpdate
-):
-    project = project_repository.get_project_by_id(
-        db,
-        project_id
-    )
+def update_project(db: Session, project_id: int, project_data: ProjectUpdate):
+    project = project_repository.get_project_by_id(db, project_id)
 
     if project is None:
         return None
@@ -100,25 +75,13 @@ def update_project(
     if project_data.status is not None:
         project.status = project_data.status
 
-    return project_repository.update_project(
-        db,
-        project
-    )
+    return project_repository.update_project(db, project)
 
 
-def delete_project(
-    db: Session,
-    project_id: int
-):
-    project = project_repository.get_project_by_id(
-        db,
-        project_id
-    )
+def delete_project(db: Session, project_id: int):
+    project = project_repository.get_project_by_id(db, project_id)
 
     if project is None:
         return None
 
-    return project_repository.delete_project(
-        db,
-        project
-    )
+    return project_repository.delete_project(db, project)

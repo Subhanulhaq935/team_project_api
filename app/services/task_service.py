@@ -1,13 +1,13 @@
 import math
+
 from sqlalchemy.orm import Session
 
-from app.repositories import task_repository
 from app.models.task import Task
+from app.repositories import task_repository
+from app.repositories.task_repository import SORT_FIELDS
 from app.schemas.task import TaskCreate, TaskUpdate
 
-from app.repositories.task_repository import SORT_FIELDS
 ALLOWED_SORT_FIELDS = set(SORT_FIELDS.keys())
-
 
 
 def get_tasks_by_project(
@@ -20,7 +20,7 @@ def get_tasks_by_project(
     assigned_to: int | None = None,
     search: str | None = None,
     sort_by: str = "created_at",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
 ):
     # Whitelist validation
     if sort_by not in ALLOWED_SORT_FIELDS:
@@ -40,7 +40,7 @@ def get_tasks_by_project(
         assigned_to=assigned_to,
         search=search,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
     )
     total_pages = math.ceil(total / page_size) if total > 0 else 0
     return {
@@ -48,9 +48,8 @@ def get_tasks_by_project(
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
-
 
 
 def get_task_by_id(db: Session, project_id: int, task_id: int):
@@ -73,18 +72,13 @@ def create_task(db: Session, project_id: int, task_data: TaskCreate):
         status=task_data.status,
         priority=task_data.priority,
         assigned_to_user_id=task_data.assigned_to_user_id,
-        due_date=task_data.due_date
+        due_date=task_data.due_date,
     )
 
     return task_repository.create_task(db, task)
 
 
-def update_task(
-    db: Session,
-    project_id: int,
-    task_id: int,
-    task_data: TaskUpdate
-):
+def update_task(db: Session, project_id: int, task_id: int, task_data: TaskUpdate):
     task = task_repository.get_task_by_id(db, task_id)
 
     if task is None:
@@ -104,7 +98,6 @@ def update_task(
 
     if task_data.priority is not None:
         task.priority = task_data.priority
-
 
     if task_data.assigned_to_user_id is not None:
         task.assigned_to_user_id = task_data.assigned_to_user_id

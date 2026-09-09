@@ -1,9 +1,10 @@
 from unittest.mock import patch
-from app.services import project_member_service
-from app.schemas.project_member import ProjectMemberCreate
+
 from app.models.project import Project
-from app.models.user import User
 from app.models.project_member import ProjectMember
+from app.models.user import User
+from app.schemas.project_member import ProjectMemberCreate
+from app.services import project_member_service
 
 
 # Test 5: Successfully Assign Member to Project
@@ -60,9 +61,7 @@ def test_invalid_project_member_user_not_found(mock_get_proj, mock_get_user, moc
 @patch("app.services.project_member_service.project_member_repository.get_project_member")
 @patch("app.services.project_member_service.user_repository.get_user_by_id")
 @patch("app.services.project_member_service.project_repository.get_project_by_id")
-def test_assign_member_already_exists(
-    mock_get_proj, mock_get_user, mock_get_member, mock_db
-):
+def test_assign_member_already_exists(mock_get_proj, mock_get_user, mock_get_member, mock_db):
     mock_get_proj.return_value = Project(id=1, name="Backend API")
     mock_get_user.return_value = User(id=5, email="developer@example.com")
     mock_get_member.return_value = ProjectMember(project_id=1, user_id=5)  # Already exists!

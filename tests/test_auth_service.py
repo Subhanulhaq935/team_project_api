@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
-from app.services import auth_service
-from app.schemas.auth import LoginRequest, RegisterRequest
+from unittest.mock import MagicMock, patch
+
 from app.models.user import User
+from app.schemas.auth import LoginRequest
+from app.services import auth_service
 
 
 # Test 14: Login Success (Correct email + correct password)
@@ -10,7 +11,9 @@ from app.models.user import User
 @patch("app.services.auth_service.create_access_token")
 @patch("app.services.auth_service.verify_password")
 @patch("app.services.auth_service.user_repository.get_user_by_email")
-def test_login_success(mock_get_user, mock_verify_pw, mock_access_token, mock_refresh_token, mock_db):
+def test_login_success(
+    mock_get_user, mock_verify_pw, mock_access_token, mock_refresh_token, mock_db
+):
     fake_user = User(id=1, email="john@example.com", password_hash="hashed_secret", role="USER")
     mock_get_user.return_value = fake_user
     mock_verify_pw.return_value = True

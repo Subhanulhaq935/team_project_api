@@ -13,9 +13,7 @@ def get_projects(db: Session):
 
 
 def get_project_by_id(db: Session, project_id: int):
-    statement = select(Project).where(
-        Project.id == project_id
-    )
+    statement = select(Project).where(Project.id == project_id)
 
     result = db.execute(statement)
 

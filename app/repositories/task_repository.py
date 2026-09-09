@@ -1,4 +1,4 @@
-from sqlalchemy import select, func , or_ , asc , desc
+from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.task import Task
@@ -25,7 +25,7 @@ def get_tasks_by_project(
     assigned_to: int | None = None,
     search: str | None = None,
     sort_by: str = "created_at",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
 ):
     # Base filter
     filters = [Task.project_id == project_id]
@@ -38,10 +38,7 @@ def get_tasks_by_project(
     if search:
         search_pattern = f"%{search}%"
         filters.append(
-            or_(
-                Task.title.ilike(search_pattern),
-                Task.description.ilike(search_pattern)
-            )
+            or_(Task.title.ilike(search_pattern), Task.description.ilike(search_pattern))
         )
     # 1. Total count query
     count_stmt = select(func.count(Task.id)).where(*filters)
@@ -51,15 +48,12 @@ def get_tasks_by_project(
     order_func = asc if sort_order.lower() == "asc" else desc
     # 3. Paginated + Sorted items query
     statement = (
-        select(Task)
-        .where(*filters)
-        .order_by(order_func(sort_column))
-        .offset(skip)
-        .limit(limit)
+        select(Task).where(*filters).order_by(order_func(sort_column)).offset(skip).limit(limit)
     )
     result = db.execute(statement)
     items = result.scalars().all()
     return items, total
+
 
 def get_task_by_id(db: Session, task_id: int):
     statement = select(Task).where(Task.id == task_id)

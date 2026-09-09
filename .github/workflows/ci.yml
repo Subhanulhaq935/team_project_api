@@ -69,7 +69,7 @@ jobs:
       # 5. Static Type Checking (mypy)
       - name: 5. Run mypy (Type Checker)
         run: |
-          mypy app --ignore-missing-imports
+          mypy app --ignore-missing-imports --explicit-package-bases
 
       # 6. Security Static Analysis (Bandit)
       - name: 6. Run Bandit (Security Scan)

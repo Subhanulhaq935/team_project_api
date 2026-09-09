@@ -40,7 +40,7 @@ from app.core.exceptions import (
 
 load_dotenv()
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 # ==========================================
 # OpenAPI / Swagger Tags Metadata

@@ -25,9 +25,7 @@ SECRET_KEY: str = (
 )
 ALGORITHM: str = os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
-    or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
-    or "30"
+    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES") or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "30"
 )
 
 

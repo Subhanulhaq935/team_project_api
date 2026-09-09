@@ -18,9 +18,17 @@ load_dotenv()
 
 password_hash = PasswordHash.recommended()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+SECRET_KEY: str = (
+    os.getenv("JWT_SECRET_KEY")
+    or os.getenv("SECRET_KEY")
+    or "dev_secret_key_change_in_production_1234567890"
+)
+ALGORITHM: str = os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
+    or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+    or "30"
+)
 
 
 # Hash password using Argon2id

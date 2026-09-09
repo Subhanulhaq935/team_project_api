@@ -10,7 +10,9 @@ def test_full_end_to_end_workflow(client, create_user):
     7. Get Project Summary & Metrics
     """
     # 1. Create Manager & Developer
-    mgr = create_user("alice.manager@example.com", role="manager", firstname="Alice", lastname="Manager")
+    mgr = create_user(
+        "alice.manager@example.com", role="manager", firstname="Alice", lastname="Manager"
+    )
     dev = create_user("bob.dev@example.com", role="user", firstname="Bob", lastname="Developer")
 
     mgr_headers = mgr["headers"]
@@ -26,9 +28,9 @@ def test_full_end_to_end_workflow(client, create_user):
         json={
             "name": "Mobile Banking App",
             "description": "Next-gen banking application",
-            "status": "active"
+            "status": "active",
         },
-        headers=mgr_headers
+        headers=mgr_headers,
     )
     assert proj_resp.status_code == 201
     project_id = proj_resp.json()["id"]
@@ -36,11 +38,8 @@ def test_full_end_to_end_workflow(client, create_user):
     # 4. Add Member
     member_resp = client.post(
         f"/api/v1/projects/{project_id}/members",
-        json={
-            "user_id": dev["id"],
-            "project_role": "DEVELOPER"
-        },
-        headers=mgr_headers
+        json={"user_id": dev["id"], "project_role": "DEVELOPER"},
+        headers=mgr_headers,
     )
     assert member_resp.status_code == 201
     assert member_resp.json()["user_id"] == dev["id"]
@@ -53,9 +52,9 @@ def test_full_end_to_end_workflow(client, create_user):
             "description": "Implement Google login",
             "status": "pending",
             "priority": "high",
-            "assigned_to_user_id": dev["id"]
+            "assigned_to_user_id": dev["id"],
         },
-        headers=mgr_headers
+        headers=mgr_headers,
     )
     assert task_resp.status_code == 201
     task_id = task_resp.json()["id"]
@@ -64,16 +63,13 @@ def test_full_end_to_end_workflow(client, create_user):
     comment_resp = client.post(
         f"/api/v1/projects/{project_id}/tasks/{task_id}/comments",
         json={"comment": "OAuth integration completed, PR submitted."},
-        headers=mgr_headers
+        headers=mgr_headers,
     )
     assert comment_resp.status_code == 201
     assert comment_resp.json()["task_id"] == task_id
 
     # 7. Get Project Summary & Verify Stats
-    summary_resp = client.get(
-        f"/api/v1/projects/{project_id}/summary",
-        headers=mgr_headers
-    )
+    summary_resp = client.get(f"/api/v1/projects/{project_id}/summary", headers=mgr_headers)
     assert summary_resp.status_code == 200
     summary = summary_resp.json()
     assert "statistics" in summary

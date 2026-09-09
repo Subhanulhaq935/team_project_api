@@ -1,8 +1,10 @@
 from unittest.mock import patch
+
 import pytest
-from app.services import task_service
-from app.schemas.task import TaskCreate, TaskUpdate
+
 from app.models.task import Task
+from app.schemas.task import TaskCreate, TaskUpdate
+from app.services import task_service
 
 
 # Test 9: Create Task Successfully
@@ -14,7 +16,7 @@ def test_create_task(mock_create_task, mock_db):
         title="Setup Auth System",
         description="Implement JWT tokens",
         status="pending",
-        priority="high"
+        priority="high",
     )
     mock_create_task.return_value = fake_created_task
 
@@ -22,7 +24,7 @@ def test_create_task(mock_create_task, mock_db):
         title="Setup Auth System",
         description="Implement JWT tokens",
         status="pending",
-        priority="high"
+        priority="high",
     )
 
     result = task_service.create_task(mock_db, project_id=1, task_data=payload)
@@ -77,8 +79,4 @@ def test_get_task_by_id_wrong_project(mock_get_task, mock_db):
 # Test 13: Invalid Sort Field Validation
 def test_task_sorting_invalid_field(mock_db):
     with pytest.raises(ValueError, match="Invalid sort field"):
-        task_service.get_tasks_by_project(
-            db=mock_db,
-            project_id=1,
-            sort_by="unsupported_column"
-        )
+        task_service.get_tasks_by_project(db=mock_db, project_id=1, sort_by="unsupported_column")

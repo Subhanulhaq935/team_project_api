@@ -19,8 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 5. Copy dependency definitions first for Docker layer caching
 COPY requirements.txt .
 
-# 6. Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# 6. Upgrade packaging tools & install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # 7. Create a dedicated non-root user and group for security
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin appuser

@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # 6. Upgrade packaging tools & install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel msgpack && \
     pip install --no-cache-dir -r requirements.txt
 
 # 7. Create a dedicated non-root user and group for security

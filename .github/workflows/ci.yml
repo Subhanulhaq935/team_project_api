@@ -6,6 +6,12 @@ on:
   push:
     branches: [main, development]
 
+# Iska purpose: GitHub Actions ko permission dena ke woh GHCR mein Docker image push kar sake.
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   ci:
     name: Continuous Integration
@@ -104,19 +110,41 @@ jobs:
         run: |
           pytest --cov=app --cov-report=term-missing --cov-report=xml tests/
 
-      # 13. Build Docker Image
+      # 13. Build Docker Image with GHCR tags
       - name: 13. Build Docker Image
         run: |
-          docker build --pull -t team-project-api:ci-test . || (sleep 5 && docker build -t team-project-api:ci-test .)
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_URI="ghcr.io/${REPO_LOWER}:${{ github.sha }}"
+          IMAGE_LATEST="ghcr.io/${REPO_LOWER}:latest"
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=${IMAGE_LATEST}" >> $GITHUB_ENV
+          docker build -t ${IMAGE_URI} -t ${IMAGE_LATEST} -t team-project-api:ci-test .
 
       # 14. Scan Docker Image with Trivy
       - name: 14. Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: team-project-api:ci-test
+          image-ref: ${{ env.IMAGE_URI }}
           format: table
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
           trivyignores: .trivyignore
+
+      # 15. Log in to GitHub Container Registry (GHCR)
+      - name: 15. Log in to GitHub Container Registry (GHCR)
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 16. Push Approved Docker Image to GHCR
+      - name: 16. Push Approved Docker Image to GHCR
+        if: github.event_name == 'push'
+        run: |
+          docker push ${{ env.IMAGE_URI }}
+          docker push ${{ env.IMAGE_LATEST }}
+

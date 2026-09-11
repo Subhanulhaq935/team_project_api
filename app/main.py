@@ -20,7 +20,7 @@ from app.core.exceptions import (
 )
 from app.core.middleware import LoggingMiddleware, RequestIDMiddleware
 from app.core.security import get_current_user
-from app.db.session import engine , get_db
+from app.db.session import engine, get_db
 from app.dependencies.authorization import require_project_access, require_roles
 from app.models.user import User
 from app.schemas.auth import (
@@ -45,7 +45,6 @@ from app.services import (
     task_service,
 )
 
-
 load_dotenv()
 
 logger = logging.getLogger("uvicorn.info")
@@ -60,6 +59,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down...")
     engine.dispose()
     logger.info("Database connection pool closed.")
+
 
 # Base.metadata.create_all(bind=engine)
 
@@ -146,6 +146,7 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
+
 @app.get("/health/live", tags=["Health"])
 def liveness_probe():
     return {"status": "alive"}
@@ -176,6 +177,7 @@ def get_version():
         "environment": os.getenv("ENVIRONMENT", "production"),
         "commit": os.getenv("GIT_COMMIT_SHA", "unknown"),
     }
+
 
 # ==========================================
 # Project Routes

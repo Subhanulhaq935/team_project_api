@@ -48,6 +48,11 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 | **Day 12** | API Performance, Indexing & Query Optimizations | `✅ Complete` |
 | **Day 13** | OWASP API Security Top 10 (API1–API5 Hardening) | `✅ Complete` |
 | **Day 14** | OWASP API Security Top 10 (API6–API10, SSRF Defense, API Inventory & Docs) | `✅ Complete` |
+| **Day 15** | Security Tooling (Bandit, pip-audit, Gitleaks) & Security Review | `✅ Complete` |
+| **Day 16** | Dockerization & Multi-Stage Environment Configuration | `✅ Complete` |
+| **Day 17** | Automated CI Pipeline (GitHub Actions with Linting & DB Migrations) | `✅ Complete` |
+| **Day 18** | Container Security (Trivy Vulnerability Scan) & CD Pipeline | `✅ Complete` |
+| **Day 19** | Production Deployment, Health/Ready/Version Probes & Rollback Strategy | `✅ Complete` |
 
 ---
 
@@ -143,6 +148,33 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 * **API10 (Unsafe Consumption of External APIs):** Implemented `SafeAPIClient` featuring connect/read timeouts, enforced TLS certificate validation, response body size streaming caps (2MB), and Pydantic schema validation for untrusted external payloads.
 * **Security Architecture Document:** Published comprehensive OWASP mapping and threat model in `docs/security.md`.
 
+### Day 15 — Security Tooling & Static Analysis Review
+* **SAST Scanning (Bandit):** Automated static AST analysis to detect SQL injections, unsafe file operations, and cryptographic flaws (`bandit -r app`).
+* **Dependency Auditing (pip-audit):** Integrated automated software bill of materials (SBOM) and vulnerability scanning for third-party PyPI packages.
+* **Secret Leak Detection (Gitleaks):** Enforced pre-commit and pipeline rules detecting API keys, private keys, and hardcoded JWT secrets.
+
+### Day 16 — Dockerization & Multi-Stage Environment Architecture
+* **Hardened Dockerfile:** Built minimal, production-grade image using `python:3.11-slim`, running with an unprivileged non-root user (`appuser`).
+* **Docker Compose:** Orchestrated multi-container local stack with FastAPI app and PostgreSQL service.
+* **Environment Separation:** Maintained strict isolation across `.env.example`, Development, Testing, and Production configs.
+
+### Day 17 — Continuous Integration Pipeline (GitHub Actions)
+* **Automated CI Workflow:** Created matrix pipeline validating code formatting (`ruff`), type checks (`mypy`), security linters (`bandit`, `pip-audit`), dynamic PostgreSQL migration boots (`alembic upgrade head`), and pytest unit/integration test coverage.
+* **PR Gatekeeper:** Enforced automated status checks blocking merge on lint or test failures.
+
+### Day 18 — Container Security & Continuous Delivery
+* **Container Vulnerability Scan (Trivy):** Scanned Docker images for OS and package CVEs in CI before deployment approvals.
+* **CD Pipeline Integration:** Configured automatic image promotion and staged deployment hooks to cloud environments using GitHub Secrets.
+
+### Day 19 — Production Deployment, Migrations & Operational Resilience
+* **Production Deployment:** Deployed API and serverless PostgreSQL database to Render cloud environment.
+* **Health & Readiness Endpoints:**
+  * `GET /health/live`: Lightweight process liveness probe.
+  * `GET /health/ready`: Deep readiness probe executing `SELECT 1` against PostgreSQL with `503 Service Unavailable` failover.
+  * `GET /api/v1/version`: Exposes release version, environment, and Git commit hash.
+* **Graceful Shutdown:** Configured `@asynccontextmanager` FastAPI lifespan handling `SIGTERM` signals and cleanly terminating SQLAlchemy connection pools.
+* **Rollback & Migration Procedures:** Published operational runbook in [`docs/operations-and-rollback.md`](docs/operations-and-rollback.md) detailing container instant reverts, Alembic rollbacks (`alembic downgrade -1`), migration lock risks, and the 3-phase Expand/Contract schema evolution strategy.
+
 ---
 
 ## 🛡️ OWASP API Security Top 10 Compliance Matrix
@@ -174,6 +206,13 @@ A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, 
 ---
 
 ## 📡 API Endpoints Overview (`/api/v1`)
+
+### 🩺 Health & Monitoring (`/health` & `/api/v1/version`)
+| Method | Endpoint | Description | Probing & Checks | Auth Required |
+| :--- | :--- | :--- | :--- | :---: |
+| `GET` | `/health/live` | Liveness Probe | Verifies container process uptime | Public |
+| `GET` | `/health/ready` | Readiness Probe | Executes `SELECT 1` on PostgreSQL (503 on failure) | Public |
+| `GET` | `/api/v1/version` | Version & Git SHA | Returns app version, environment, and commit hash | Public |
 
 ### 🔐 Authentication (`/api/v1/auth`)
 | Method | Endpoint | Description | Auth Required |
@@ -278,7 +317,8 @@ team-project-api/
 │
 ├── docs/
 │   ├── api-inventory.md               # API9 Complete API Inventory & Route Catalog
-│   └── security.md                    # Complete OWASP API Security Top 10 Documentation
+│   ├── security.md                    # Complete OWASP API Security Top 10 Documentation
+│   └── operations-and-rollback.md     # Production deployment, rollback runbook & migration strategy
 │
 ├── alembic/
 │   ├── versions/
@@ -356,3 +396,64 @@ pytest -v
 # Run with test coverage report
 pytest --cov=app --cov-report=term-missing
 ```
+
+---
+
+## 🐳 Docker & Container Orchestration
+
+### Run Full Stack with Docker Compose
+```bash
+# Build and run FastAPI + PostgreSQL containers
+docker compose up --build -d
+
+# Inspect running services
+docker compose ps
+
+# Run database migrations inside container
+docker compose exec app alembic upgrade head
+
+# Stop stack
+docker compose down
+```
+
+### Build & Run Standalone Hardened Docker Image
+```bash
+# Build production-grade non-root image
+docker build -t team-project-api:latest .
+
+# Run container
+docker run -d --name team-project-api -p 8000:8000 --env-file .env team-project-api:latest
+```
+
+---
+
+## 🔒 Security Scanning & Static Analysis
+
+| Security Tool | Purpose | Execution Command |
+| :--- | :--- | :--- |
+| **Bandit** | Static AST security vulnerability linter | `bandit -r app` |
+| **pip-audit** | Third-party dependency vulnerability & CVE scan | `pip-audit` |
+| **Ruff** | Ultra-fast code formatting and style validation | `ruff check .` |
+| **mypy** | Static type checking | `mypy app` |
+| **Trivy** | Container image OS and package vulnerability scan | `trivy image team-project-api:latest` |
+
+---
+
+## ⚙️ CI/CD Pipeline Architecture (GitHub Actions)
+
+Every pull request and commit to `development` and `main` triggers automated GitHub Actions:
+```
+Checkout ➔ Python Setup ➔ Ruff ➔ mypy ➔ Bandit ➔ pip-audit ➔ Postgres Service ➔ Alembic Migrations ➔ Pytest Coverage (70%+) ➔ Docker Build & Trivy Scan
+```
+
+---
+
+## 🔄 Production Operations & Rollback Runbook
+
+Complete operational guidelines, emergency playbooks, and database schema strategies are documented in [`docs/operations-and-rollback.md`](docs/operations-and-rollback.md):
+
+* **Application Rollbacks:** Instant traffic revert via Render/Railway dashboard or previous container tag deployment.
+* **Database Rollbacks:** Reverting migrations via `alembic downgrade -1` or Point-in-Time Recovery (PITR).
+* **Migration Risk Mitigation:** Table locks prevention, async backfills, and deprecation cycles.
+* **Zero-Downtime Schema Evolution:** 3-Phase **Expand / Contract (Parallel Run)** pattern for seamless production updates.
+

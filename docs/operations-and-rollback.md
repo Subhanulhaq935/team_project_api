@@ -5,6 +5,7 @@ This document outlines standard operating procedures for **production deployment
 ---
 
 ## 📋 Table of Contents
+
 1. [Deployment Architecture & Verification](#1-deployment-architecture--verification)
 2. [Application Rollback Procedure](#2-application-rollback-procedure)
 3. [Database Rollback Procedure (Alembic)](#3-database-rollback-procedure-alembic)
@@ -17,16 +18,18 @@ This document outlines standard operating procedures for **production deployment
 ## 1. Deployment Architecture & Verification
 
 The production pipeline enforces an immutable artifact release flow:
+
 ```
 Approved Docker Image ➔ Release Command (Alembic Migrations) ➔ App Deployment ➔ Liveness/Readiness Probes ➔ Smoke Tests
 ```
 
 ### Health & Observability Endpoints
-| Endpoint | Probe Type | Purpose | Healthy Response |
-| :--- | :--- | :--- | :--- |
-| `GET /health/live` | **Liveness** | Checks if the container process is alive and accepting connections. | `200 OK {"status": "alive"}` |
-| `GET /health/ready` | **Readiness** | Executes `SELECT 1` against PostgreSQL to confirm DB availability before traffic routing. | `200 OK {"status": "ready", "database": "connected"}` |
-| `GET /api/v1/version` | **Version / Audit** | Exposes running semantic version, environment name, and Git commit SHA. | `200 OK {"version": "1.0.0", "environment": "production", ...}` |
+
+| Endpoint              | Probe Type          | Purpose                                                                                   | Healthy Response                                                |
+| :-------------------- | :------------------ | :---------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+| `GET /health/live`    | **Liveness**        | Checks if the container process is alive and accepting connections.                       | `200 OK {"status": "alive"}`                                    |
+| `GET /health/ready`   | **Readiness**       | Executes `SELECT 1` against PostgreSQL to confirm DB availability before traffic routing. | `200 OK {"status": "ready", "database": "connected"}`           |
+| `GET /api/v1/version` | **Version / Audit** | Exposes running semantic version, environment name, and Git commit SHA.                   | `200 OK {"version": "1.0.0", "environment": "production", ...}` |
 
 ---
 
@@ -35,12 +38,15 @@ Approved Docker Image ➔ Release Command (Alembic Migrations) ➔ App Deploymen
 An application rollback is triggered when a new release introduces runtime bugs, unhandled exceptions, or performance regressions while the underlying database schema remains compatible.
 
 ### A. Managed Cloud (Render / Railway / Azure App Service)
+
 1. **Instant Re-route**: In the hosting console (e.g. Render Dashboard), navigate to **Deploys** and select the previous stable deployment.
 2. **Rollback Trigger**: Click **"Rollback to this deploy"** or redeploy the prior approved commit.
 3. **Verify Routing**: Verify that incoming traffic routes to the healthy previous release within seconds without container rebuild overhead.
 
 ### B. Container & Docker Registry Rollback
+
 If running standalone Docker / Container Registry:
+
 ```bash
 # 1. Pull the previous verified image tag (e.g. v1.0.8)
 docker pull myregistry.azurecr.io/team-project-api:v1.0.8
@@ -64,6 +70,7 @@ Database rollbacks revert schema changes when a migration introduces structural 
 > **Data Loss Risk:** Downgrading migrations that dropped columns or altered constraints can cause irrevocable data loss or downtime if live application instances still depend on the newer schema. Always execute a database snapshot before running migrations.
 
 ### Step-by-Step Alembic Downgrade
+
 ```bash
 # 1. Inspect current database revision and migration history
 alembic current
@@ -80,7 +87,9 @@ alembic current
 ```
 
 ### Point-in-Time Recovery (PITR) & Snapshots
+
 For managed databases (AWS RDS, Neon, Supabase, Azure Database for PostgreSQL):
+
 1. Take an automated or manual snapshot prior to any major schema release.
 2. In the event of catastrophic data corruption, initiate Point-in-Time Recovery (PITR) to restore state prior to the migration timestamp.
 
@@ -88,12 +97,12 @@ For managed databases (AWS RDS, Neon, Supabase, Azure Database for PostgreSQL):
 
 ## 4. Database Migration Risks in Production
 
-| Risk Factor | Impact | Mitigation Strategy |
-| :--- | :--- | :--- |
-| **Exclusive Table Locks (`ACCESS EXCLUSIVE`)** | `ALTER TABLE ADD COLUMN NOT NULL` (without default in older DBs) or `ALTER COLUMN TYPE` locks the entire table against reads and writes. | Add columns with `DEFAULT` or as `NULLABLE`. Create indexes with `CONCURRENTLY`. |
-| **Long-Running Backfills** | Migrations updating millions of rows saturate CPU/IOPS and exhaust connection pools. | Run batch backfills asynchronously in background jobs outside Alembic migration transactions. |
-| **Irreversible Changes** | `DROP TABLE` or `DROP COLUMN` destroys historical data instantly. | Enforce deprecation periods. Do not drop columns until the new release has been stable in production for at least 1-2 sprint cycles. |
-| **Schema/Code Desynchronization** | During rolling updates, old container replicas query a newly migrated schema and crash due to unexpected columns or missing constraints. | Follow the **Expand / Contract** pattern for all schema changes. |
+| Risk Factor                                    | Impact                                                                                                                                   | Mitigation Strategy                                                                                                                  |
+| :--------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| **Exclusive Table Locks (`ACCESS EXCLUSIVE`)** | `ALTER TABLE ADD COLUMN NOT NULL` (without default in older DBs) or `ALTER COLUMN TYPE` locks the entire table against reads and writes. | Add columns with `DEFAULT` or as `NULLABLE`. Create indexes with `CONCURRENTLY`.                                                     |
+| **Long-Running Backfills**                     | Migrations updating millions of rows saturate CPU/IOPS and exhaust connection pools.                                                     | Run batch backfills asynchronously in background jobs outside Alembic migration transactions.                                        |
+| **Irreversible Changes**                       | `DROP TABLE` or `DROP COLUMN` destroys historical data instantly.                                                                        | Enforce deprecation periods. Do not drop columns until the new release has been stable in production for at least 1-2 sprint cycles. |
+| **Schema/Code Desynchronization**              | During rolling updates, old container replicas query a newly migrated schema and crash due to unexpected columns or missing constraints. | Follow the **Expand / Contract** pattern for all schema changes.                                                                     |
 
 ---
 
@@ -118,6 +127,7 @@ flowchart LR
 ### Example: Renaming a Column (`name` ➔ `project_name`)
 
 #### Phase 1: Expand (Release N)
+
 1. **Migration**: Add new column `project_name` as `NULLABLE`. Keep old column `name`.
 2. **Application Code**:
    - Write to both `name` and `project_name` simultaneously.
@@ -125,6 +135,7 @@ flowchart LR
 3. **Deploy Release N**: Older and newer application instances can both run safely during rollout.
 
 #### Phase 2: Transition & Backfill
+
 1. Run background script to copy data from `name` to `project_name` for historical rows:
    ```sql
    UPDATE projects SET project_name = name WHERE project_name IS NULL;
@@ -132,12 +143,13 @@ flowchart LR
 2. **Application Code**: Update application reads to use `project_name`.
 
 #### Phase 3: Contract (Release N+1)
+
 1. **Application Code**: Remove all references to the legacy `name` column.
 2. **Migration**: Apply migration to drop `name` column and set `project_name` to `NOT NULL`:
    ```python
    def upgrade():
-       op.alter_column('projects', 'project_name', nullable=False)
-       op.drop_column('projects', 'name')
+       op.alter_column("projects", "project_name", nullable=False)
+       op.drop_column("projects", "name")
    ```
 
 ---
@@ -145,6 +157,7 @@ flowchart LR
 ## 6. Emergency Incident Checklist
 
 When an incident occurs in Production:
+
 - [ ] **Check Health Endpoints:** Check `GET /health/ready` and `GET /health/live`.
 - [ ] **Inspect Logs:** Search structured logs by `request_id` or query error codes (`500 INTERNAL_SERVER_ERROR`).
 - [ ] **Assess Blast Radius:** Determine if the issue is Application Code (HTTP 5xx, memory leak) or Database (deadlocks, migration failure).

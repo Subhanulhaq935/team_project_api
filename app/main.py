@@ -1,9 +1,13 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.error_handlers import register_error_handlers
@@ -16,7 +20,7 @@ from app.core.exceptions import (
 )
 from app.core.middleware import LoggingMiddleware, RequestIDMiddleware
 from app.core.security import get_current_user
-from app.db.session import get_db
+from app.db.session import engine, get_db
 from app.dependencies.authorization import require_project_access, require_roles
 from app.models.user import User
 from app.schemas.auth import (
@@ -42,6 +46,20 @@ from app.services import (
 )
 
 load_dotenv()
+
+logger = logging.getLogger("uvicorn.info")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application starting up...")
+
+    yield
+
+    logger.info("Application shutting down...")
+    engine.dispose()
+    logger.info("Database connection pool closed.")
+
 
 # Base.metadata.create_all(bind=engine)
 
@@ -83,6 +101,7 @@ tags_metadata = [
 # ==========================================
 app = FastAPI(
     title="Team Project Management API",
+    lifespan=lifespan,
     description="""
     🚀 **Production-grade REST API** built with FastAPI and PostgreSQL.
 
@@ -126,6 +145,38 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/health/live", tags=["Health"])
+def liveness_probe():
+    return {"status": "alive"}
+
+
+@app.get("/health/ready", tags=["Health"])
+def readiness_probe(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "ready",
+            "database": "connected",
+        }
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "not_ready",
+                "database": "disconnected",
+            },
+        )
+
+
+@app.get("/api/v1/version", tags=["Health"])
+def get_version():
+    return {
+        "version": "1.0.0",
+        "environment": os.getenv("ENVIRONMENT", "production"),
+        "commit": os.getenv("GIT_COMMIT_SHA", "unknown"),
+    }
 
 
 # ==========================================

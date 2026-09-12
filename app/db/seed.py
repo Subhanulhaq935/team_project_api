@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from typing import TypedDict
 
 from app.core.security import hash_password
 from app.db.session import SessionLocal
@@ -13,6 +14,46 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
+class UserSeedDict(TypedDict):
+    firstname: str
+    lastname: str
+    email: str
+    password: str
+    role: str
+    is_active: bool
+
+
+class ProjectSeedDict(TypedDict):
+    name: str
+    client_name: str | None
+    description: str | None
+    status: str
+    start_date: datetime
+    end_date: datetime
+
+
+class MemberSeedDict(TypedDict):
+    project_id: int
+    user_id: int
+    role: str
+
+
+class TaskSeedDict(TypedDict):
+    project_id: int
+    title: str
+    description: str | None
+    status: str
+    priority: str
+    assigned_to_user_id: int | None
+    due_date: datetime | None
+
+
+class CommentSeedDict(TypedDict):
+    task_title: str
+    user_id: int
+    comment: str
+
+
 def seed_database() -> None:
     db = SessionLocal()
     try:
@@ -21,7 +62,7 @@ def seed_database() -> None:
         # ---------------------------------------------------------
         # 1. Seed Users
         # ---------------------------------------------------------
-        users_data = [
+        users_data: list[UserSeedDict] = [
             {
                 "firstname": "System",
                 "lastname": "Admin",
@@ -83,30 +124,31 @@ def seed_database() -> None:
         # ---------------------------------------------------------
         # 2. Seed Projects
         # ---------------------------------------------------------
-        projects_data = [
+        now = datetime.utcnow()
+        projects_data: list[ProjectSeedDict] = [
             {
                 "name": "Cloud Infrastructure Migration",
                 "client_name": "Acme Global Tech",
                 "description": "Multi-region migration of microservices to Kubernetes clusters with zero downtime.",
                 "status": "active",
-                "start_date": datetime.utcnow() - timedelta(days=30),
-                "end_date": datetime.utcnow() + timedelta(days=60),
+                "start_date": now - timedelta(days=30),
+                "end_date": now + timedelta(days=60),
             },
             {
                 "name": "Mobile Banking Redesign",
                 "client_name": "Horizon Financial",
                 "description": "Next-generation iOS & Android application featuring biometric auth and instant transfers.",
                 "status": "active",
-                "start_date": datetime.utcnow() - timedelta(days=15),
-                "end_date": datetime.utcnow() + timedelta(days=90),
+                "start_date": now - timedelta(days=15),
+                "end_date": now + timedelta(days=90),
             },
             {
                 "name": "Confidential Security Audit",
                 "client_name": "Internal Corp",
                 "description": "Internal security assessment and penetration testing (Private to User B).",
                 "status": "active",
-                "start_date": datetime.utcnow() - timedelta(days=5),
-                "end_date": datetime.utcnow() + timedelta(days=20),
+                "start_date": now - timedelta(days=5),
+                "end_date": now + timedelta(days=20),
             },
         ]
 
@@ -137,7 +179,7 @@ def seed_database() -> None:
         # ---------------------------------------------------------
         # 3. Seed Project Members
         # ---------------------------------------------------------
-        members_data = [
+        members_data: list[MemberSeedDict] = [
             # Cloud Migration: Manager (PROJECT_MANAGER), Dev (MEMBER)
             {"project_id": p_cloud.id, "user_id": manager_user.id, "role": "PROJECT_MANAGER"},
             {"project_id": p_cloud.id, "user_id": dev_user.id, "role": "MEMBER"},
@@ -176,7 +218,7 @@ def seed_database() -> None:
         # ---------------------------------------------------------
         # 4. Seed Tasks
         # ---------------------------------------------------------
-        tasks_data = [
+        tasks_data: list[TaskSeedDict] = [
             {
                 "project_id": p_cloud.id,
                 "title": "Setup Terraform CI/CD Modules",
@@ -184,7 +226,7 @@ def seed_database() -> None:
                 "status": "completed",
                 "priority": "high",
                 "assigned_to_user_id": dev_user.id,
-                "due_date": datetime.utcnow() + timedelta(days=5),
+                "due_date": now + timedelta(days=5),
             },
             {
                 "project_id": p_cloud.id,
@@ -193,7 +235,7 @@ def seed_database() -> None:
                 "status": "in_progress",
                 "priority": "urgent",
                 "assigned_to_user_id": dev_user.id,
-                "due_date": datetime.utcnow() + timedelta(days=7),
+                "due_date": now + timedelta(days=7),
             },
             {
                 "project_id": p_cloud.id,
@@ -202,7 +244,7 @@ def seed_database() -> None:
                 "status": "pending",
                 "priority": "medium",
                 "assigned_to_user_id": manager_user.id,
-                "due_date": datetime.utcnow() + timedelta(days=14),
+                "due_date": now + timedelta(days=14),
             },
             {
                 "project_id": p_mobile.id,
@@ -211,7 +253,7 @@ def seed_database() -> None:
                 "status": "in_progress",
                 "priority": "high",
                 "assigned_to_user_id": manager_user.id,
-                "due_date": datetime.utcnow() + timedelta(days=10),
+                "due_date": now + timedelta(days=10),
             },
             {
                 "project_id": p_audit.id,
@@ -220,7 +262,7 @@ def seed_database() -> None:
                 "status": "pending",
                 "priority": "high",
                 "assigned_to_user_id": user_b.id,
-                "due_date": datetime.utcnow() + timedelta(days=3),
+                "due_date": now + timedelta(days=3),
             },
         ]
 
@@ -253,7 +295,7 @@ def seed_database() -> None:
         # ---------------------------------------------------------
         # 5. Seed Comments
         # ---------------------------------------------------------
-        comments_data = [
+        comments_data: list[CommentSeedDict] = [
             {
                 "task_title": "Setup Terraform CI/CD Modules",
                 "user_id": dev_user.id,

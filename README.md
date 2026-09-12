@@ -1,459 +1,331 @@
 # 🚀 Team Project & Task Management REST API
 
-A production-ready, relational REST API built with **FastAPI**, **PostgreSQL**, and **SQLAlchemy 2.0**, featuring robust JWT authentication, refresh token rotation, granular Role-Based Access Control (RBAC), and end-to-end **OWASP API Security Top 10 (API1–API10)** defenses.
+A production-grade, relational REST API built with **FastAPI**, **PostgreSQL**, and **SQLAlchemy 2.0**, featuring robust JWT authentication, refresh token rotation, granular Role-Based Access Control (RBAC), and end-to-end **OWASP API Security Top 10** defenses.
 
 ---
 
-## 📌 Live Demo & API Documentation
-
-* **Interactive Swagger UI (Render):** [team-project-api-eakc.onrender.com/docs](https://team-project-api-eakc.onrender.com/docs#/)
-* **Local Swagger UI:** `http://127.0.0.1:8000/docs`
-* **Local ReDoc:** `http://127.0.0.1:8000/redoc`
-* **Local OpenAPI JSON:** `http://127.0.0.1:8000/openapi.json`
-
----
-
-## 🛠️ Tech Stack
-
-* **Language:** Python 3.13
-* **Framework:** FastAPI
-* **ASGI Server:** Uvicorn
-* **Data Validation & Serialization:** Pydantic v2 (with `email-validator`)
-* **Database:** PostgreSQL (Neon Serverless)
-* **ORM:** SQLAlchemy 2.0
-* **Database Driver:** psycopg (v3)
-* **Database Migrations:** Alembic
-* **Password Hashing:** Argon2id (`pwdlib[argon2]`)
-* **Authentication & Authorization:** PyJWT (Access Tokens) & Cryptographic Refresh Tokens (`secrets`)
-* **Security & Defense:** OWASP API Security Top 10 Compliance (BOLA/BFLA prevention, SSRF defense, CORS hardening, Security Headers)
-* **Architecture:** Layered Architecture (Models, Repositories, Services, Schemas, Dependencies, Core)
+## 📑 Table of Contents
+- [1. Purpose & Overview](#-1-purpose--overview)
+- [2. Architecture & Design Patterns](#-2-architecture--design-patterns)
+- [3. Technology Stack](#-3-technology-stack)
+- [4. Installation & Local Setup](#-4-installation--local-setup)
+- [5. Environment Variables Configuration](#-5-environment-variables-configuration)
+- [6. Database Migrations (Alembic)](#-6-database-migrations-alembic)
+- [7. Database Seeding](#-7-database-seeding)
+- [8. Running the Application](#-8-running-the-application)
+- [9. Docker & Container Orchestration](#-9-docker--container-orchestration)
+- [10. Running Automated Tests & Coverage](#-10-running-automated-tests--coverage)
+- [11. Security Scanning & Static Analysis](#-11-security-scanning--static-analysis)
+- [12. Interactive Swagger UI & API Documentation](#-12-interactive-swagger-ui--api-documentation)
+- [13. CI/CD Pipeline Architecture](#-13-cicd-pipeline-architecture)
+- [14. Production Deployment & Operational Runbook](#-14-production-deployment--operational-runbook)
 
 ---
 
-## 📊 Development Progress
+## 🎯 1. Purpose & Overview
 
-| Milestone | Key Focus Area | Status |
-| :--- | :--- | :---: |
-| **Day 1** | FastAPI & REST Fundamentals | `✅ Complete` |
-| **Day 2** | PostgreSQL & SQLAlchemy Integration | `✅ Complete` |
-| **Day 3** | Alembic Migrations & Database Seeding | `✅ Complete` |
-| **Day 4** | Tasks, Comments & Relational Architecture | `✅ Complete` |
-| **Day 5** | Many-to-Many Relationships, Project Members & Transactions | `✅ Complete` |
-| **Day 6** | User Authentication & JWT Authorization | `✅ Complete` |
-| **Day 7** | Refresh Tokens, Token Rotation & Session Security | `✅ Complete` |
-| **Day 8** | Role-Based Access Control (RBAC) & Project Access Authorization | `✅ Complete` |
-| **Day 9** | Validation, Filtering, Pagination, Search & Sorting | `✅ Complete` |
-| **Day 10** | Custom Middleware, Request Tracing & Global Exception Handling | `✅ Complete` |
-| **Day 11** | Automated Testing with Pytest & Test DB Fixtures | `✅ Complete` |
-| **Day 12** | API Performance, Indexing & Query Optimizations | `✅ Complete` |
-| **Day 13** | OWASP API Security Top 10 (API1–API5 Hardening) | `✅ Complete` |
-| **Day 14** | OWASP API Security Top 10 (API6–API10, SSRF Defense, API Inventory & Docs) | `✅ Complete` |
-| **Day 15** | Security Tooling (Bandit, pip-audit, Gitleaks) & Security Review | `✅ Complete` |
-| **Day 16** | Dockerization & Multi-Stage Environment Configuration | `✅ Complete` |
-| **Day 17** | Automated CI Pipeline (GitHub Actions with Linting & DB Migrations) | `✅ Complete` |
-| **Day 18** | Container Security (Trivy Vulnerability Scan) & CD Pipeline | `✅ Complete` |
-| **Day 19** | Production Deployment, Health/Ready/Version Probes & Rollback Strategy | `✅ Complete` |
+The **Team Project Management API** is a collaborative platform designed for engineering teams to manage workspaces, projects, tasks, and task comments with strict multi-tenant isolation and security boundaries.
+
+### Key Capabilities:
+* **Multi-Tier Identity Management:** User registration, secure login with Argon2id hashing, short-lived JWT access tokens, and rotating refresh tokens.
+* **Granular Role-Based Access Control (RBAC):** Hierarchical permissions across `admin`, `manager`, and standard `user` roles, supplemented with per-project roles (`PROJECT_MANAGER`, `MEMBER`).
+* **Relational Workflows:** Seamless project lifecycle management, member provisioning, task delegation with multi-attribute filtering, search, sorting, and threaded comments.
+* **OWASP API Security Compliance:** Built-in defenses against BOLA/IDOR, Mass Assignment (BOPLA), Broken Authentication, BFLA, SSRF, and sensitive business flow abuse.
 
 ---
 
-## 📅 Daily Milestones & Technical Log
+## 🏗️ 2. Architecture & Design Patterns
 
-### Day 1 — FastAPI & REST Fundamentals
-* Built initial Health Check and CRUD endpoints for Projects.
-* Configured Pydantic request and response schemas.
-* Set up standard HTTP status codes and automatic OpenAPI docs.
-* *Note:* Used an in-memory store before database persistence.
+The project follows a clean **Layered Architecture** adhering to separation of concerns:
 
-### Day 2 — PostgreSQL & SQLAlchemy
-* Connected FastAPI with PostgreSQL using SQLAlchemy 2.0 Engine and Sessions.
-* Created Declarative `Base` and the `Project` database model.
-* Migrated CRUD operations from in-memory arrays to PostgreSQL queries.
-* Managed runtime configurations via environment variables (`.env`).
-
-### Day 3 — Alembic Migrations & Database Seeding
-* Initialized Alembic and bound it to SQLAlchemy metadata.
-* Implemented the `User` model with email uniqueness constraints.
-* Created automated database seeding for default admin, manager, and projects.
-
-### Day 4 — Tasks, Comments & Relational Architecture
-* Added `Task` and `Comment` models with Foreign Key constraints.
-* Implemented the Repository and Service architectural pattern for clean separation of concerns.
-* Added relational integrity checks across Projects, Tasks, Users, and Comments.
-
-### Day 5 — Many-to-Many Relationships, Project Members & Transactions
-* **Many-to-Many Architecture:** Implemented a Many-to-Many relationship between `Projects` and `Users` using the `project_members` junction table.
-* **Project Membership Management:** Added full CRUD functionality and dedicated endpoints to add, view, and remove project members.
-* **Data Integrity:** Added a unique constraint on `(project_id, user_id)` to prevent duplicate member assignments.
-* **Project Analytics:** Built a Project Summary API aggregating total members, tasks, task statuses, and comments.
-* **Database Transactions & Consistency:**
-  * Wrapped project creation in atomic transactions using `commit()` and `rollback()`.
-  * Used `db.flush()` to generate and retrieve the `project_id` before creating the junction record.
-  * Automatically assigned the project creator the `PROJECT_MANAGER` role.
-* **API Testing:** Verified all new endpoints and relationship constraints via Swagger UI.
-
-### Day 6 — User Authentication & JWT Authorization
-* **Password Hashing:** Integrated modern password hashing with Argon2id using `pwdlib`.
-* **User Registration (`POST /api/v1/auth/register`):** Enforces email uniqueness validation and securely stores hashed passwords.
-* **User Login (`POST /api/v1/auth/login`):** Verifies user credentials and generates short-lived JWT access tokens with claims (`sub`, `role`, `iat`, `exp`, `jti`).
-* **Protected Routes (`GET /api/v1/auth/me`):** Created `get_current_user` FastAPI dependency utilizing `HTTPBearer` to validate access tokens and attach the authenticated `User` to requests.
-
-### Day 7 — Refresh Tokens, Token Rotation & Session Security
-* **Database-Backed Refresh Tokens:** Created the `RefreshToken` database model and executed Alembic migration `fc1d00a5b271_add_refresh_tokens.py`.
-* **Cryptographic Security:** Generated 64-byte URL-safe cryptographically secure random tokens (`secrets.token_urlsafe`) and stored Argon2-hashed copies in the database.
-* **Token Rotation (`POST /api/v1/auth/refresh`):** Implemented refresh token rotation; every refresh request revokes the existing token and generates a brand-new access and refresh token pair.
-* **Session Revocation / Logout (`POST /api/v1/auth/logout`):** Allows users to securely invalidate refresh tokens upon logging out.
-
-### Day 8 — Role-Based Access Control (RBAC) & Project Authorization
-* **Role Verification Dependency:** Implemented `require_roles(*allowed_roles)` in `app/dependencies/authorization.py` to enforce role permissions across endpoints.
-* **Route Protection:** Restricted project listing (`GET /api/v1/projects`) exclusively to `admin` and `manager` roles.
-* **Granular Project Access Control (`require_project_access`):**
-  * `admin` role has unrestricted access across all projects.
-  * `manager` role is validated to ensure they are designated as `PROJECT_MANAGER` for that project.
-  * Standard members are checked against the `project_members` repository to ensure membership.
-  * Unauthorized requests are rejected with `HTTP 403 Forbidden`.
-
-### Day 9 — Validation, Filtering, Pagination, Search & Sorting
-* **Task Priority & Schema Migration:** Added `priority` (`low`, `medium`, `high`, `urgent`) to the `Task` model and ran Alembic migration `8fc07d24f988_add_task_priority.py`.
-* **Validation & Schemas Clean-up:** Enforced strict Pydantic validation on create, update, and response schemas. Protected sensitive fields (`id`, `project_id`, `role`, `is_active`, `created_at`) from user mutation.
-* **Production-Style Pagination:** Implemented generic `PaginatedResponse[T]` supporting query parameters `?page=1&page_size=20` (capped at max 100) returning `items`, `total`, `page`, `page_size`, and `total_pages`.
-* **Dynamic Multi-Field Filtering:** Added filter support for `?status=`, `?priority=`, and `?assigned_to=` with dynamic query building.
-* **Search Capabilities:** Implemented case-insensitive search (`?search=`) across task title and description using SQLAlchemy `ilike` and `or_`.
-* **Sorting & Whitelist Security:** Supported `?sort_by=` and `?sort_order=asc|desc` with strict server-side whitelisting (`created_at`, `due_date`, `priority`, `status`, `title`, `id`) returning `HTTP 400 Bad Request` on invalid fields.
-
-### Day 10 — Middleware, Logging & Global Exception Handlers
-* **Request Tracing:** Integrated `RequestIDMiddleware` attaching a unique UUID `X-Request-ID` to every HTTP request and response for end-to-end observability.
-* **Structured Request Logging:** Added `LoggingMiddleware` measuring latency, tracking HTTP verbs, paths, and status codes.
-* **Global Error Sanitization:** Centralized exception handlers for `AppException`, `StarletteHTTPException`, `RequestValidationError`, and `Exception` returning standardized error envelopes while concealing internal stack traces in production.
-
-### Day 11 — Testing & Test Database Automation
-* **Pytest Setup:** Configured `pytest` and `pytest-asyncio` with dedicated test database sessions and isolation.
-* **Integration Tests:** Covered full user lifecycles (registration, login, token refresh, RBAC enforcement, project creation, task management, and comment workflows).
-
-### Day 12 — Query Optimization & Performance
-* **Relational Performance:** Added database indexes on foreign keys (`project_id`, `user_id`, `task_id`) and search columns (`status`, `priority`).
-* **Optimized Aggregations:** Tuned project summary queries to execute optimized single-roundtrip aggregation queries.
-
-### Day 13 — OWASP API Security Top 10 (Part 1: API1–API5)
-* **API1 (BOLA):** Object-level ownership checks preventing cross-tenant project and task access.
-* **API2 (Broken Auth):** Strong Argon2id password hashing, short-lived JWT access tokens (15m), and rotating refresh tokens.
-* **API3 (BOPLA):** Prevented mass-assignment vulnerabilities using strict DTO schemas and `ConfigDict(extra='forbid')`.
-* **API4 (Resource Consumption):** Hard limits on pagination (`max 100`), bounded string query lengths, and request rate limiting considerations.
-* **API5 (BFLA):** Enforced function-level authorization via `require_roles("admin")` on destructive operations.
-
-### Day 14 — OWASP API Security Top 10 (Part 2: API6–API10 & Documentation)
-* **API6 (Sensitive Business Flows):** Protected critical flows (Login, Project Creation, Member Management, Role Mutation, Token Rotation) with strict authorization checks and anti-abuse safeguards.
-* **API7 (SSRF Defense):** Built safe external HTTP request mechanisms with strict URL scheme validation, domain allowlists, and DNS resolution filtering against private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.1`, and cloud metadata endpoints like `169.254.169.254`).
-* **API8 (Security Misconfiguration):** Hardened production configurations (`DEBUG=false`, restricted CORS origins, HTTPS/HSTS enforcement, security headers `nosniff`, `DENY`, and zero stack trace leakages).
-* **API9 (API Inventory):** Created comprehensive API catalog in `docs/api-inventory.md` documenting all endpoints, versioning (`/api/v1`), query parameters, and access roles.
-* **API10 (Unsafe Consumption of External APIs):** Implemented `SafeAPIClient` featuring connect/read timeouts, enforced TLS certificate validation, response body size streaming caps (2MB), and Pydantic schema validation for untrusted external payloads.
-* **Security Architecture Document:** Published comprehensive OWASP mapping and threat model in `docs/security.md`.
-
-### Day 15 — Security Tooling & Static Analysis Review
-* **SAST Scanning (Bandit):** Automated static AST analysis to detect SQL injections, unsafe file operations, and cryptographic flaws (`bandit -r app`).
-* **Dependency Auditing (pip-audit):** Integrated automated software bill of materials (SBOM) and vulnerability scanning for third-party PyPI packages.
-* **Secret Leak Detection (Gitleaks):** Enforced pre-commit and pipeline rules detecting API keys, private keys, and hardcoded JWT secrets.
-
-### Day 16 — Dockerization & Multi-Stage Environment Architecture
-* **Hardened Dockerfile:** Built minimal, production-grade image using `python:3.11-slim`, running with an unprivileged non-root user (`appuser`).
-* **Docker Compose:** Orchestrated multi-container local stack with FastAPI app and PostgreSQL service.
-* **Environment Separation:** Maintained strict isolation across `.env.example`, Development, Testing, and Production configs.
-
-### Day 17 — Continuous Integration Pipeline (GitHub Actions)
-* **Automated CI Workflow:** Created matrix pipeline validating code formatting (`ruff`), type checks (`mypy`), security linters (`bandit`, `pip-audit`), dynamic PostgreSQL migration boots (`alembic upgrade head`), and pytest unit/integration test coverage.
-* **PR Gatekeeper:** Enforced automated status checks blocking merge on lint or test failures.
-
-### Day 18 — Container Security & Continuous Delivery
-* **Container Vulnerability Scan (Trivy):** Scanned Docker images for OS and package CVEs in CI before deployment approvals.
-* **CD Pipeline Integration:** Configured automatic image promotion and staged deployment hooks to cloud environments using GitHub Secrets.
-
-### Day 19 — Production Deployment, Migrations & Operational Resilience
-* **Production Deployment:** Deployed API and serverless PostgreSQL database to Render cloud environment.
-* **Health & Readiness Endpoints:**
-  * `GET /health/live`: Lightweight process liveness probe.
-  * `GET /health/ready`: Deep readiness probe executing `SELECT 1` against PostgreSQL with `503 Service Unavailable` failover.
-  * `GET /api/v1/version`: Exposes release version, environment, and Git commit hash.
-* **Graceful Shutdown:** Configured `@asynccontextmanager` FastAPI lifespan handling `SIGTERM` signals and cleanly terminating SQLAlchemy connection pools.
-* **Rollback & Migration Procedures:** Published operational runbook in [`docs/operations-and-rollback.md`](docs/operations-and-rollback.md) detailing container instant reverts, Alembic rollbacks (`alembic downgrade -1`), migration lock risks, and the 3-phase Expand/Contract schema evolution strategy.
-
----
-
-## 🛡️ OWASP API Security Top 10 Compliance Matrix
-
-| OWASP Vulnerability | Risk / Vector | Implemented Mitigation |
-| :--- | :--- | :--- |
-| **API1: Broken Object Level Authorization (BOLA)** | Horizontal privilege escalation across projects | `require_project_access` dependency checks project membership on all project-scoped routes. |
-| **API2: Broken Authentication** | Credential stuffing, weak tokens | Argon2id hashing, 15m JWT access tokens, cryptographic rotating refresh tokens. |
-| **API3: Broken Object Property Level Authorization (BOPLA)** | Mass-assignment on sensitive fields | Strict Pydantic DTOs with `extra='forbid'`, protecting system fields (`id`, `role`, `created_at`). |
-| **API4: Unrestricted Resource Consumption** | DoS via unbounded queries / payloads | Strict pagination (`page_size` max 100), bounded query lengths (`max_length=100`), 2MB body caps. |
-| **API5: Broken Function Level Authorization (BFLA)** | Vertical privilege escalation | `require_roles("admin", "manager")` guards admin routes and destructive actions. |
-| **API6: Unrestricted Access to Sensitive Business Flows** | Automated spamming & brute force | Role validation, anti-automation controls, and token reuse revocation on sensitive business flows. |
-| **API7: Server-Side Request Forgery (SSRF)** | Attacks on localhost & cloud metadata (`169.254.169.254`) | Scheme validation, domain allowlisting, and DNS resolution filtering against private/cloud IP ranges. |
-| **API8: Security Misconfiguration** | Stack trace leaks, open CORS, weak headers | Sanitized error handlers, strict CORS allowlist, security headers (`HSTS`, `nosniff`, `X-Frame-Options`). |
-| **API9: Improper Inventory Management** | Shadow & undocumented endpoints | Strict versioning (`/api/v1`), automated OpenAPI schema generation, and `docs/api-inventory.md`. |
-| **API10: Unsafe Consumption of APIs** | Blind trust in 3rd-party responses | `SafeAPIClient` with connect/read timeouts, mandatory TLS verification, 2MB size caps, and Pydantic parsing. |
-
----
-
-## 🗄️ Database Relationships
-
-* **Projects & Tasks:** One-to-Many (`Project` has many `Tasks`, `Task` belongs to one `Project`).
-* **Users & Tasks:** One-to-Many (`User` can be assigned multiple `Tasks`).
-* **Tasks & Comments:** One-to-Many (`Task` contains multiple `Comments`).
-* **Users & Comments:** One-to-Many (`User` can post multiple `Comments`).
-* **Projects & Users (Members):** Many-to-Many via `project_members` junction table with roles (`PROJECT_MANAGER`, `MEMBER`).
-* **Users & Refresh Tokens:** One-to-Many (`User` can have active and revoked session `RefreshTokens`).
-
----
-
-## 📡 API Endpoints Overview (`/api/v1`)
-
-### 🩺 Health & Monitoring (`/health` & `/api/v1/version`)
-| Method | Endpoint | Description | Probing & Checks | Auth Required |
-| :--- | :--- | :--- | :--- | :---: |
-| `GET` | `/health/live` | Liveness Probe | Verifies container process uptime | Public |
-| `GET` | `/health/ready` | Readiness Probe | Executes `SELECT 1` on PostgreSQL (503 on failure) | Public |
-| `GET` | `/api/v1/version` | Version & Git SHA | Returns app version, environment, and commit hash | Public |
-
-### 🔐 Authentication (`/api/v1/auth`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :---: |
-| `POST` | `/api/v1/auth/register` | Register a new user account | Public |
-| `POST` | `/api/v1/auth/login` | Authenticate user & issue token pair | Public |
-| `GET` | `/api/v1/auth/me` | Fetch authenticated user profile | Bearer Token |
-| `POST` | `/api/v1/auth/refresh` | Rotate and issue a new token pair | Refresh Token |
-| `POST` | `/api/v1/auth/logout` | Revoke active refresh token | Refresh Token |
-
-### 📁 Projects (`/api/v1/projects`)
-| Method | Endpoint | Description | Access / RBAC |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/api/v1/projects` | List all projects | Admin, Manager |
-| `POST` | `/api/v1/projects` | Create a new project | Admin, Manager |
-| `GET` | `/api/v1/projects/{project_id}` | Retrieve project details | Project Member / Admin |
-| `PATCH` | `/api/v1/projects/{project_id}` | Update project metadata | Project Manager / Admin |
-| `DELETE` | `/api/v1/projects/{project_id}` | Delete a project | Admin Only |
-| `GET` | `/api/v1/projects/{project_id}/summary` | Aggregate project statistics | Project Member / Admin |
-
-### 👥 Project Members (`/api/v1/projects/{project_id}/members`)
-| Method | Endpoint | Description | Access |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/api/v1/projects/{project_id}/members` | List all members in a project | Project Member / Admin |
-| `POST` | `/api/v1/projects/{project_id}/members` | Assign a user to a project | Project Manager / Admin |
-| `DELETE` | `/api/v1/projects/{project_id}/members/{user_id}` | Remove user from project | Project Manager / Admin |
-
-### ✅ Tasks (`/api/v1/projects/{project_id}/tasks`)
-| Method | Endpoint | Description | Query Parameters / Features |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/projects/{project_id}/tasks` | Get paginated, filtered, searchable & sorted tasks | `page`, `page_size`, `status`, `priority`, `assigned_to`, `search`, `sort_by`, `sort_order` |
-| `POST` | `/api/v1/projects/{project_id}/tasks` | Create task inside project (with priority) | Body: `TaskCreate` |
-| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}` | Retrieve specific task details | Project Member / Admin |
-
-### 💬 Comments (`/api/v1/projects/{project_id}/tasks/{task_id}/comments`)
-| Method | Endpoint | Description | Access |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/api/v1/projects/{project_id}/tasks/{task_id}/comments` | List comments on a task | Project Member / Admin |
-| `POST` | `/api/v1/projects/{project_id}/tasks/{task_id}/comments` | Post a comment to a task | Project Member / Admin |
-
----
-
-## 📂 Project Structure
-
-```text
-team-project-api/
-│
-├── app/
-│   ├── core/
-│   │   ├── security.py                # Password hashing, JWT creation/verification, token utils
-│   │   ├── security_headers.py        # OWASP Security headers middleware
-│   │   ├── external_api_client.py     # API10 Safe HTTP Client with timeouts & TLS validation
-│   │   ├── middleware.py              # RequestID & structured logging middlewares
-│   │   ├── error_handlers.py          # Centralized error handlers & trace sanitization
-│   │   └── exceptions.py              # Custom application exception hierarchy
-│   │
-│   ├── db/
-│   │   ├── base.py                    # SQLAlchemy Base declaration
-│   │   ├── session.py                 # Engine & SessionLocal configuration
-│   │   └── seed.py                    # Database seeding script
-│   │
-│   ├── dependencies/
-│   │   └── authorization.py           # Role checking (RBAC) & project access dependencies
-│   │
-│   ├── models/
-│   │   ├── project.py                 # Project ORM model
-│   │   ├── user.py                    # User ORM model
-│   │   ├── task.py                    # Task ORM model (with priority)
-│   │   ├── comment.py                 # Comment ORM model
-│   │   ├── project_member.py          # ProjectMember junction model
-│   │   └── refresh_token.py           # RefreshToken ORM model
-│   │
-│   ├── repositories/
-│   │   ├── project_repository.py      # Project DB queries
-│   │   ├── task_repository.py         # Task DB queries (pagination, filters, search, sorting)
-│   │   ├── comment_repository.py      # Comment DB queries
-│   │   ├── project_member_repository.py # Project membership DB queries
-│   │   ├── project_summary_repository.py# Analytics & aggregation queries
-│   │   ├── refresh_token_repository.py# Refresh token DB queries
-│   │   └── user_repository.py         # User DB queries
-│   │
-│   ├── schemas/
-│   │   ├── auth.py                    # Auth request & response schemas
-│   │   ├── user.py                    # User safe response & update schemas
-│   │   ├── project.py                 # Project Pydantic schemas
-│   │   ├── task.py                    # Task Pydantic schemas (with priority)
-│   │   ├── pagination.py              # Generic PaginatedResponse schema
-│   │   ├── comment.py                 # Comment Pydantic schemas
-│   │   ├── project_member.py          # Membership schemas
-│   │   └── project_summary.py         # Project analytics response schema
-│   │
-│   ├── services/
-│   │   ├── auth_service.py            # Registration, login, token rotation logic
-│   │   ├── project_service.py         # Project business logic
-│   │   ├── task_service.py            # Task business logic (validation, sorting whitelist)
-│   │   ├── comment_service.py         # Comment business logic
-│   │   ├── project_member_service.py  # Member assignment logic
-│   │   ├── project_summary_service.py # Aggregation service
-│   │   └── ssrf_safe_client.py        # API7 SSRF defense client with DNS & IP filtering
-│   │
-│   └── main.py                        # FastAPI application instance & routing
-│
-├── docs/
-│   ├── api-inventory.md               # API9 Complete API Inventory & Route Catalog
-│   ├── security.md                    # Complete OWASP API Security Top 10 Documentation
-│   └── operations-and-rollback.md     # Production deployment, rollback runbook & migration strategy
-│
-├── alembic/
-│   ├── versions/
-│   ├── env.py
-│   └── script.py.mako
-│
-├── tests/
-│   ├── conftest.py                    # Pytest database fixtures and test client
-│   └── test_api.py                    # Unit and integration test suites
-│
-├── .env.example
-├── alembic.ini
-├── pytest.ini
-├── requirements.txt
-└── README.md
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    HTTP Clients / Frontend                  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│             FastAPI Routers & Middleware Layer              │
+│  - Request ID Tracing (X-Request-ID)   - Security Headers   │
+│  - Logging Middleware                 - Centralized Errors  │
+│  - CORS Hardening                     - Auth & RBAC Guards  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Business Service Layer                    │
+│  - Business logic validation         - Token rotation       │
+│  - Sorting whitelist checks           - SSRF-safe HTTP client│
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Repository Layer                        │
+│  - Relational queries (PostgreSQL)    - Aggregations        │
+│  - Dynamic filtering & pagination    - Atomic transactions  │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Database / Persistence (PostgreSQL)            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
+### Relational Schema Design:
+* **Users:** Master user identity, credentials, system role (`admin`, `manager`, `user`).
+* **Projects:** Workspace entity containing title, client details, lifecycle dates, and status.
+* **Project Members:** Many-to-Many junction table (`project_members`) mapping users to projects with custom project roles (`PROJECT_MANAGER`, `MEMBER`).
+* **Tasks:** Granular work items linked to projects and assigned to users, with priority (`low`, `medium`, `high`, `urgent`) and status (`pending`, `in_progress`, `completed`).
+* **Comments:** Threaded discussions tied to individual tasks and authored by authenticated project members.
+* **Refresh Tokens:** Cryptographically hashed session tokens with revocation and rotation tracking.
+
 ---
 
-## 🚀 Getting Started Locally
+## 🛠️ 3. Technology Stack
 
-### 1. Clone & Set Up Environment
-```bash
+| Category | Technology |
+| :--- | :--- |
+| **Language & Runtime** | Python 3.11+ / Python 3.13 |
+| **Web Framework** | [FastAPI](https://fastapi.tiangolo.com/) |
+| **ASGI Web Server** | [Uvicorn](https://www.uvicorn.org/) |
+| **Database** | [PostgreSQL](https://www.postgresql.org/) (Neon Serverless & Local Container) |
+| **ORM & Database Driver** | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) & [psycopg](https://www.psycopg.org/psycopg3/) (v3) |
+| **Schema Migration Engine** | [Alembic](https://alembic.sqlalchemy.org/) |
+| **Data Validation** | [Pydantic v2](https://docs.pydantic.dev/) (with `email-validator`) |
+| **Cryptography & Auth** | Argon2id (`pwdlib[argon2]`), [PyJWT](https://pyjwt.readthedocs.io/), `secrets` |
+| **Testing Suite** | [pytest](https://pytest.org/), `pytest-cov`, `pytest-asyncio`, `httpx` |
+| **Code Quality & Typing** | [Ruff](https://astral.sh/ruff), [mypy](https://mypy-lang.org/) |
+| **Security Scanning** | [Bandit](https://bandit.readthedocs.io/), [pip-audit](https://pypi.org/project/pip-audit/), [Trivy](https://trivy.dev/), [Gitleaks](https://github.com/gitleaks/gitleaks) |
+| **Containerization** | Docker, Docker Compose, Multi-stage Slim Images |
+
+---
+
+## 💻 4. Installation & Local Setup
+
+### Prerequisites
+* Python 3.11 or higher
+* PostgreSQL database or Docker installed
+* Git
+
+### Step-by-Step Setup:
+```powershell
+# 1. Clone repository
 git clone https://github.com/Subhanulhaq935/team_project_api.git
 cd team-project-api
 
-# Create and activate virtual environment
+# 2. Create Python virtual environment
 python -m venv venv
 
-# Windows
-venv\Scripts\activate
-
-# Linux / macOS
+# 3. Activate virtual environment
+# On Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+# On Linux / macOS:
 source venv/bin/activate
 
-# Install dependencies
+# 4. Install all dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment Variables
-Create a `.env` file in the root directory:
+---
+
+## ⚙️ 5. Environment Variables Configuration
+
+Create a `.env` file in the root directory (or copy from `.env.example`):
+
 ```env
+# Application Settings
 ENVIRONMENT=development
 DEBUG=true
+PORT=8000
 
-# Database
-DATABASE_URL=postgresql+psycopg://<username>:<password>@<host>/<database>?sslmode=require
+# Database Connection (PostgreSQL or SQLite for quick local test)
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/team_project_db
 
-# JWT & Authentication
-JWT_SECRET_KEY=your_super_secret_jwt_key_here_minimum_32_characters
+# Cryptography & JWT Security
+JWT_SECRET_KEY=change_this_to_a_secure_random_string_at_least_32_characters_long
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# CORS Allowed Origins
+# CORS Allowed Origins (Comma-separated)
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000
-```
 
-### 3. Run Migrations & Start Server
-```bash
-# Apply migrations
-alembic upgrade head
-
-# Start FastAPI development server
-uvicorn app.main:app --reload
-```
-
-Access Swagger UI at `http://127.0.0.1:8000/docs`.
-
-### 4. Run Test Suite
-```bash
-# Run pytest test suite
-pytest -v
-
-# Run with test coverage report
-pytest --cov=app --cov-report=term-missing
+# Optional Git SHA tracking for /api/v1/version
+GIT_COMMIT_SHA=development
 ```
 
 ---
 
-## 🐳 Docker & Container Orchestration
+## 🔄 6. Database Migrations (Alembic)
 
-### Run Full Stack with Docker Compose
-```bash
-# Build and run FastAPI + PostgreSQL containers
+Database schema evolution is managed through Alembic.
+
+```powershell
+# Apply all latest migrations
+alembic upgrade head
+
+# Rollback single migration
+alembic downgrade -1
+
+# Generate a new autogenerated migration after model updates
+alembic revision --autogenerate -m "describe_schema_change"
+
+# View current database revision
+alembic current
+```
+
+---
+
+## 🌱 7. Database Seeding
+
+Populate the database with realistic demonstration users, projects, tasks, and comments:
+
+```powershell
+python -m app.db.seed
+```
+
+### Seeded Demonstration Accounts:
+| Role | Email | Password | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@example.com` | `AdminPassword123!` | System-wide administrative operations |
+| **Manager** | `manager@example.com` | `ManagerPassword123!` | Project management and member assignment |
+| **Developer (User A)** | `developer@example.com` | `DeveloperPassword123!` | Task assignment, status updates, comments |
+| **User B (Isolated)** | `user_b@example.com` | `UserBPassword123!` | BOLA / IDOR security testing |
+
+---
+
+## ▶️ 8. Running the Application
+
+### Development Mode (with hot-reloading)
+```powershell
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Production Mode
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+---
+
+## 🐳 9. Docker & Container Orchestration
+
+### Multi-Container Stack (FastAPI + PostgreSQL) with Docker Compose
+```powershell
+# Build and start services in background
 docker compose up --build -d
 
-# Inspect running services
+# Inspect status
 docker compose ps
 
-# Run database migrations inside container
+# Run migrations inside container
 docker compose exec app alembic upgrade head
 
-# Stop stack
+# Seed database inside container
+docker compose exec app python -m app.db.seed
+
+# Stop and tear down containers
 docker compose down
 ```
 
-### Build & Run Standalone Hardened Docker Image
-```bash
-# Build production-grade non-root image
+### Standalone Production Docker Build
+```powershell
+# Build non-root hardened Docker image
 docker build -t team-project-api:latest .
 
-# Run container
+# Run image with environment file
 docker run -d --name team-project-api -p 8000:8000 --env-file .env team-project-api:latest
 ```
 
 ---
 
-## 🔒 Security Scanning & Static Analysis
+## 🧪 10. Running Automated Tests & Coverage
 
-| Security Tool | Purpose | Execution Command |
-| :--- | :--- | :--- |
-| **Bandit** | Static AST security vulnerability linter | `bandit -r app` |
-| **pip-audit** | Third-party dependency vulnerability & CVE scan | `pip-audit` |
-| **Ruff** | Ultra-fast code formatting and style validation | `ruff check .` |
-| **mypy** | Static type checking | `mypy app` |
-| **Trivy** | Container image OS and package vulnerability scan | `trivy image team-project-api:latest` |
+The automated test suite exercises unit tests, integration tests, and security regression tests using an isolated test database.
 
----
+```powershell
+# Run full pytest suite with verbose output
+pytest -v
 
-## ⚙️ CI/CD Pipeline Architecture (GitHub Actions)
+# Run only authentication and security tests
+pytest -v -k "auth or security or bola"
 
-Every pull request and commit to `development` and `main` triggers automated GitHub Actions:
-```
-Checkout ➔ Python Setup ➔ Ruff ➔ mypy ➔ Bandit ➔ pip-audit ➔ Postgres Service ➔ Alembic Migrations ➔ Pytest Coverage (70%+) ➔ Docker Build & Trivy Scan
+# Run tests with code coverage report
+pytest --cov=app --cov-report=term-missing
 ```
 
 ---
 
-## 🔄 Production Operations & Rollback Runbook
+## 🛡️ 11. Security Scanning & Static Analysis
 
-Complete operational guidelines, emergency playbooks, and database schema strategies are documented in [`docs/operations-and-rollback.md`](docs/operations-and-rollback.md):
+Security analysis tools are integrated locally and into CI:
 
-* **Application Rollbacks:** Instant traffic revert via Render/Railway dashboard or previous container tag deployment.
-* **Database Rollbacks:** Reverting migrations via `alembic downgrade -1` or Point-in-Time Recovery (PITR).
-* **Migration Risk Mitigation:** Table locks prevention, async backfills, and deprecation cycles.
-* **Zero-Downtime Schema Evolution:** 3-Phase **Expand / Contract (Parallel Run)** pattern for seamless production updates.
+```powershell
+# 1. Static Application Security Testing (SAST)
+bandit -r app
 
+# 2. Dependency Vulnerability Audit (CVE scanner)
+pip-audit
+
+# 3. Code Formatting & Linting
+ruff check .
+
+# 4. Static Type Checking
+mypy app
+
+# 5. Secret Leak Detection
+gitleaks detect --source . -v
+
+# 6. Container Vulnerability Scanning
+trivy image team-project-api:latest
+```
+
+---
+
+## 📖 12. Interactive Swagger UI & API Documentation
+
+Once the server is running, explore and test the interactive API documentation:
+
+* **Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* **ReDoc Documentation:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+* **Raw OpenAPI Specification:** [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json)
+
+For detailed endpoint catalog, query params, payloads, and response codes, refer to [`docs/api-inventory.md`](docs/api-inventory.md).
+
+---
+
+## ⚙️ 13. CI/CD Pipeline Architecture
+
+Continuous Integration and Delivery is automated using **GitHub Actions** (`.github/workflows/ci.yml`):
+
+```
+Push / PR
+  │
+  ├─► Stage 1: Code Quality (Ruff Lint & Mypy Type Check)
+  ├─► Stage 2: Security Scans (Bandit SAST, pip-audit CVEs, Gitleaks)
+  ├─► Stage 3: Database & Migrations (PostgreSQL Service Container + Alembic)
+  ├─► Stage 4: Automated Testing (Pytest + Coverage Thresholds)
+  ├─► Stage 5: Container Build & Trivy Vulnerability Scan
+  └─► Stage 6: Continuous Deployment (Cloud Hook / Trigger)
+```
+
+---
+
+## 🚀 14. Production Deployment & Operational Runbook
+
+### Health Probes & Monitoring:
+* **Liveness Probe:** `GET /health/live` — Verifies HTTP server is responding (`{"status": "alive"}`).
+* **Readiness Probe:** `GET /health/ready` — Verifies database connection with `SELECT 1` (returns `503 Service Unavailable` on DB disconnection).
+* **Version Probe:** `GET /api/v1/version` — Returns application version, active environment, and Git commit hash.
+
+### Rollback & Migration Strategy:
+See the complete operational guide in [`docs/operations-and-rollback.md`](docs/operations-and-rollback.md) for:
+* Zero-downtime 3-Phase Expand/Contract schema evolution.
+* Alembic rollbacks (`alembic downgrade -1`).
+* Instant container image rollbacks via cloud dashboard/Docker tags.
+* Graceful server shutdowns via FastAPI `@asynccontextmanager` lifecycle hooks.
+
+---
+
+## 📄 License & Attribution
+Developed as part of the backend engineering & API security curriculum. Licensed under the MIT License.

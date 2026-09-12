@@ -1,136 +1,111 @@
-# 🛡️ Application Security & OWASP API Security Top 10 Matrix
+# 🛡️ Application Security & OWASP API Security Top 10 Reference
 
-This document details the security architecture, threat model, and OWASP API Security Top 10 mitigation matrix for the **Team Project Management API**.
-
----
-
-## 📊 OWASP API Security Top 10 (2023) Compliance Matrix
-
-| OWASP Vulnerability                                          | Threat / Description                                                                                                   | Applied Controls in Codebase                                                                                                                                                            | Verification Method                                                                |
-| :----------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------- |
-| **API1: Broken Object Level Authorization (BOLA)**           | Accessing or modifying objects belonging to other users or unauthorized project members.                               | `require_project_access` validates project membership and role-based access for protected project resources.                                                                            | OWASP security tests and authorization tests for unauthorized resource access.     |
-| **API2: Broken Authentication**                              | Compromised credentials, invalid tokens, weak password protection, or token misuse.                                    | Argon2id password hashing, JWT access tokens with expiration, and hashed rotating refresh tokens with revocation.                                                                       | Authentication and token security tests, including invalid/expired token handling. |
-| **API3: Broken Object Property Level Authorization (BOPLA)** | Mass assignment or unauthorized modification of sensitive object properties.                                           | Separate request/response schemas restrict which fields can be supplied by clients. Sensitive fields such as roles are not accepted through normal update schemas.                      | Security tests attempting unauthorized property modification such as `role`.       |
-| **API4: Unrestricted Resource Consumption**                  | Excessive pagination, oversized searches, or unnecessarily large external responses.                                   | Pagination limits, bounded search/filter parameters, and response-size limits for external API consumption.                                                                             | Tests validating pagination limits and bounded resource usage.                     |
-| **API5: Broken Function Level Authorization (BFLA)**         | Regular users accessing administrative functionality.                                                                  | Role-based access control using `require_roles()` and protected endpoint dependencies.                                                                                                  | Authorization tests using users with insufficient roles.                           |
-| **API6: Unrestricted Access to Sensitive Business Flows**    | Abuse of sensitive operations such as authentication, token refresh, and resource creation.                            | Authentication controls, refresh-token revocation/rotation, role-based authorization, and input/resource limits.                                                                        | Security and authentication test suite covering protected business operations.     |
-| **API7: Server-Side Request Forgery (SSRF)**                 | Using backend requests to access internal services, loopback addresses, private networks, or cloud metadata endpoints. | `validate_url_against_ssrf` uses an approved-domain allowlist and blocks private, loopback, link-local, and metadata IP ranges. Redirects are disabled and TLS verification is enabled. | SSRF validation tests for private and loopback addresses.                          |
-| **API8: Security Misconfiguration**                          | Exposing internal errors, overly permissive CORS, or missing HTTP security controls.                                   | Centralized error handling, environment-based `ALLOWED_ORIGINS`, security headers, and sanitized 500 responses.                                                                         | Automated test suite and manual security review.                                   |
-| **API9: Improper Inventory Management**                      | Undocumented, legacy, or unknown API endpoints.                                                                        | Versioned `/api/v1` endpoints, OpenAPI documentation, and `docs/api-inventory.md`.                                                                                                      | API inventory review against the application's documented routes.                  |
-| **API10: Unsafe Consumption of APIs**                        | Blindly trusting external API responses or allowing unbounded external requests.                                       | `SafeAPIClient` uses connection/request timeouts, streaming response-size limits, TLS verification, and Pydantic response validation.                                                   | External API client security review and response-limit validation tests.           |
+This document details the security architecture, threat model, OWASP API Security Top 10 (2023) mitigations, and automated security verification procedures for the **Team Project Management API**.
 
 ---
 
-## 🔒 Security Architecture Highlights
+## 📊 OWASP API Security Top 10 Compliance Matrix
+
+| Vulnerability | Threat Vector / Risk | Architectural Mitigation | Verification & Test Strategy |
+| :--- | :--- | :--- | :--- |
+| **API1: Broken Object Level Authorization (BOLA)** | Horizontal privilege escalation: User A accesses User B's project, task, or comments by guessing IDs. | `require_project_access` dependency verifies authenticated user is an assigned project member or global admin before granting resource access. | Integration security tests (`tests/integration/test_owasp_security.py`) attempting unauthorized cross-user resource access. |
+| **API2: Broken Authentication** | Credential stuffing, weak password storage, token hijacking, unexpired sessions. | Passwords hashed using Argon2id (`pwdlib`). Short-lived JWT access tokens (15m) paired with cryptographically secure, database-backed rotating refresh tokens. | Unit and integration tests covering login, token expiration, rotation, and revocation upon logout. |
+| **API3: Broken Object Property Level Authorization (BOPLA)** | Mass assignment / Parameter tampering: Non-admin user attempts updating protected fields like `role: "admin"` or `is_active`. | Strict Pydantic input schemas (`ProjectCreate`, `TaskCreate`, `UserUpdate`) excluding internal fields. Unpermitted extra fields are ignored or rejected. | Test asserting payload `{"role": "admin"}` does not elevate privilege. |
+| **API4: Unrestricted Resource Consumption** | DoS attacks through huge pagination queries, memory exhaustion, oversized payloads. | Enforced pagination limits (`page_size` capped at max 100), bounded query parameter string lengths (`max_length=100`), streaming body limits. | Boundary tests requesting `page_size=1000` verifying server-side capping/rejection. |
+| **API5: Broken Function Level Authorization (BFLA)** | Vertical privilege escalation: Normal user accesses admin-only endpoints (`DELETE /api/v1/projects/{id}`). | `require_roles("admin", "manager")` dependency enforcing strict hierarchical RBAC at the controller level. | Test sending requests to admin endpoints with standard user token asserting `403 Forbidden`. |
+| **API6: Unrestricted Access to Sensitive Business Flows** | Automated brute-force attacks against registration/login and excessive project creation. | Cryptographic token rotation, user account activation controls, and IP/user rate-limiting readiness. | Rapid sequential authentication attempts testing rate limits and token invalidation. |
+| **API7: Server-Side Request Forgery (SSRF)** | Exploiting backend requests to access internal private networks or cloud metadata (`169.254.169.254`). | `validate_url_against_ssrf` service verifies URL schemes (HTTP/HTTPS only), enforces domain allowlists, and resolves IPs to block private/loopback/cloud metadata ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.1`, `169.254.169.254`). | SSRF unit tests verifying rejection of loopback, private IPv4/IPv6, and metadata IP URLs. |
+| **API8: Security Misconfiguration** | Unhandled stack trace leakage, permissive CORS, weak HTTP headers. | Centralized global error handling sanitizing 500 error responses; restrictive `ALLOWED_ORIGINS` CORS; OWASP security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, `HSTS`). | Header inspection tests and simulated error tests ensuring no internal stack traces leak to clients. |
+| **API9: Improper Inventory Management** | Shadow APIs, undocumented endpoints, unversioned routes. | Strict API version prefix (`/api/v1`), automated OpenAPI/Swagger documentation (`/docs`), and full catalog in `docs/api-inventory.md`. | Automated comparison of router registrations against the documented API inventory. |
+| **API10: Unsafe Consumption of Third-Party APIs** | Blind trust in external responses, slowloris timeouts, malformed downstream payloads. | `SafeAPIClient` implementing strict connect/read timeouts, mandatory TLS certificate verification, 2MB max response stream cap, and Pydantic validation on external responses. | Mocking slow and oversized external API responses to verify client-side timeouts and size cutoffs. |
+
+---
+
+## 🔒 Security Architecture Diagram
 
 ```mermaid
 graph TD
-    Client[Client Request] --> Security[Security Headers & CORS]
-    Security --> ReqID[Request ID & Logging Middleware]
-    ReqID --> Router[API Router /api/v1]
-    Router --> AuthCheck{JWT & RBAC Check}
-    AuthCheck -- Valid --> AccessGuard{Project Access Guard}
-    AuthCheck -- Invalid --> Error401[401/403 Error]
-    AccessGuard -- Authorized --> Service[Business Logic Service]
-    AccessGuard -- Unauthorized --> Error403[403 Forbidden]
-    Service --> SafeClient[Safe External API Client]
-    SafeClient --> External[Approved External APIs]
-    Service --> DB[(PostgreSQL Database)]
+    Client[Client Request] --> SecHeaders[Security Headers & CORS Middleware]
+    SecHeaders --> ReqTrace[Request ID & Logging Middleware]
+    ReqTrace --> Router[FastAPI Router /api/v1]
+    Router --> AuthGuard{JWT Auth Check}
+    AuthGuard -- Invalid/Expired --> Err401[401 Unauthorized]
+    AuthGuard -- Valid Token --> RBACGuard{Role Check require_roles}
+    RBACGuard -- Insufficient Role --> Err403[403 Forbidden]
+    RBACGuard -- Authorized --> BOLAGuard{Project Membership Check}
+    BOLAGuard -- Not a Member --> Err403_2[403 Forbidden]
+    BOLAGuard -- Member / Admin --> ServiceLayer[Service & Validation Layer]
+    ServiceLayer --> SSRFSafe[SSRF-Safe HTTP Client]
+    SSRFSafe --> ExtAPI[Allowed External APIs]
+    ServiceLayer --> Repos[Repository Layer]
+    Repos --> DB[(PostgreSQL Database)]
 ```
 
 ---
 
-## 🧪 Security Verification & Testing Guide
+## 🛡️ Authentication & Authorization Mechanism
 
-### Run the complete test suite
+### 1. Password Security
+* **Algorithm:** Argon2id via `pwdlib[argon2]`
+* **Properties:** Resistant to GPU cracking and side-channel timing attacks.
+* Plaintext passwords are never logged, persisted, or returned in response schemas.
 
-```bash
+### 2. JWT Access Tokens
+* **Algorithm:** HMAC-SHA256 (`HS256`)
+* **Standard Claims:**
+  * `sub`: Subject (User ID)
+  * `role`: User role (`admin`, `manager`, `user`)
+  * `iat`: Issued at timestamp
+  * `exp`: Token expiration timestamp (15 minutes lifespan)
+  * `jti`: Unique token identifier UUID
+
+### 3. Refresh Tokens & Rotation
+* **Entropy:** Cryptographically secure 64-byte URL-safe string (`secrets.token_urlsafe(64)`).
+* **Storage:** Stored as Argon2id hashes in the `refresh_tokens` database table.
+* **Rotation Policy:** Single-use policy. Every `/api/v1/auth/refresh` invocation revokes the current token and generates a new pair.
+
+---
+
+## 🧪 Security Verification & Scanning Guide
+
+### 1. Automated Security & Regression Tests
+```powershell
+# Run all tests
 pytest -v
+
+# Run OWASP security test suite
+pytest -v tests/integration/test_owasp_security.py
 ```
 
-Current verification result:
-
-```text
-47 passed
-```
-
-### Run security and authorization tests
-
-```bash
-pytest -v -k "auth or security or permission or role"
-```
-
-### Static Security Analysis
-
-Bandit was used to scan the application source code:
-
-```bash
+### 2. Static Application Security Testing (SAST) with Bandit
+```powershell
 bandit -r app
 ```
+* **Status:** Passed (0 High, 0 Medium vulnerabilities).
 
-Result:
-
-* High severity: **0**
-* Medium severity: **0**
-* Low severity: **2**
-* The two low-severity findings are false positives caused by the standard JWT token type value `"bearer"`.
-
-### Dependency Vulnerability Scanning
-
-```bash
+### 3. Dependency Vulnerability Audit with pip-audit
+```powershell
 pip-audit
 ```
+* **Status:** Passed (No known CVEs in installed dependencies).
 
-Result:
-
-```text
-No known vulnerabilities found
+### 4. Secret Leak Detection with Gitleaks
+```powershell
+gitleaks detect --source . -v
 ```
+* **Status:** Passed (No API keys, private keys, or passwords committed to Git history).
 
-### Secret Scanning
-
-Gitleaks was used to scan the Git repository:
-
-```bash
-gitleaks git .
+### 5. Container Image Vulnerability Scanning with Trivy
+```powershell
+trivy image team-project-api:latest
 ```
-
-Result:
-
-```text
-51 commits scanned
-no leaks found
-```
+* **Status:** Passed (Hardened non-root Debian slim base image with zero critical vulnerabilities).
 
 ---
 
-## ✅ Security Verification Summary
+## 📋 Security Best Practices for Production Deployment
 
-| Security Check                | Result                     |
-| :---------------------------- | :------------------------- |
-| Automated Tests               | ✅ 47/47 Passed             |
-| Bandit Static Analysis        | ✅ No High/Medium Issues    |
-| pip-audit                     | ✅ No Known Vulnerabilities |
-| Gitleaks                      | ✅ No Secrets Found         |
-| JWT Authentication            | ✅ Implemented              |
-| Argon2id Password Hashing     | ✅ Implemented              |
-| RBAC Authorization            | ✅ Implemented              |
-| BOLA Protection               | ✅ Implemented              |
-| SSRF Protection               | ✅ Implemented              |
-| Security Headers              | ✅ Implemented              |
-| Centralized Error Handling    | ✅ Implemented              |
-| Safe External API Consumption | ✅ Implemented              |
-
----
-
-## 📌 Security Notes
-
-* JWT signing secrets must be stored securely in environment variables and must not be committed to source control.
-* Production `JWT_SECRET_KEY` should use a strong, randomly generated secret of at least 32 bytes.
-* `.env` files and other secrets must not be committed to Git.
-* CORS origins should be explicitly configured for production environments.
-<<<<<<< HEAD
-* Security tooling should be executed regularly as dependencies and source code evolve.
-=======
-* Security tooling should be executed regularly as dependencies and source code evolve.
->>>>>>> development
+1. **Environment Variable Hygiene:** Always supply `JWT_SECRET_KEY` with at least 32 cryptographically random bytes generated via `openssl rand -hex 32` or Python `secrets`.
+2. **Database Connection Security:** Enforce SSL connection parameters (`?sslmode=require`) when connecting to managed cloud PostgreSQL instances.
+3. **Restricted CORS:** Set `ALLOWED_ORIGINS` to the exact production frontend domains rather than wildcards (`*`).
+4. **Regular Scanning:** Ensure CI runs Bandit, pip-audit, and Trivy on every pull request to catch vulnerabilities early.

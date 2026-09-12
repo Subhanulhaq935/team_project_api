@@ -164,7 +164,12 @@ def seed_database() -> None:
                     joined_at=datetime.utcnow(),
                 )
                 db.add(pm)
-                logger.info("  [+] Added User ID %d to Project ID %d as %s", m["user_id"], m["project_id"], m["role"])
+                logger.info(
+                    "  [+] Added User ID %d to Project ID %d as %s",
+                    m["user_id"],
+                    m["project_id"],
+                    m["role"],
+                )
 
         db.flush()
 
@@ -239,7 +244,9 @@ def seed_database() -> None:
                 db.add(task)
                 db.flush()
                 task_map[t["title"]] = task
-                logger.info("  [+] Created Task: '%s' (Project ID: %d)", t["title"], t["project_id"])
+                logger.info(
+                    "  [+] Created Task: '%s' (Project ID: %d)", t["title"], t["project_id"]
+                )
             else:
                 task_map[t["title"]] = existing_task
 
@@ -289,7 +296,11 @@ def seed_database() -> None:
                         created_at=datetime.utcnow(),
                     )
                     db.add(comment)
-                    logger.info("  [+] Added Comment to Task '%s' by User ID %d", c["task_title"], c["user_id"])
+                    logger.info(
+                        "  [+] Added Comment to Task '%s' by User ID %d",
+                        c["task_title"],
+                        c["user_id"],
+                    )
 
         db.commit()
         logger.info("✅ Database successfully seeded!")

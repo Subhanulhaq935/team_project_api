@@ -76,7 +76,6 @@ def seed_database() -> None:
                 user_map[u["email"]] = existing_user
                 logger.info("  [~] User already exists: %s", u["email"])
 
-        admin_user = user_map["admin@example.com"]
         manager_user = user_map["manager@example.com"]
         dev_user = user_map["developer@example.com"]
         user_b = user_map["user_b@example.com"]

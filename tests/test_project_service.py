@@ -10,7 +10,7 @@ from app.services import project_service
 @patch("app.services.project_service.project_repository.create_project")
 @patch("app.services.project_service.user_repository.get_user_by_id")
 def test_create_project(mock_get_user, mock_create_project, mock_db):
-    # Arrange: Mock user exists
+    # Arrange: Mock creator user exists
     mock_get_user.return_value = User(id=1, email="admin@example.com")
 
     def side_effect(db, project):
@@ -23,11 +23,14 @@ def test_create_project(mock_get_user, mock_create_project, mock_db):
         name="Team Management System",
         description="Internal project tracking tool",
         status="ACTIVE",
-        user_id=1,
     )
 
     # Act
-    result = project_service.create_project(mock_db, payload)
+    result = project_service.create_project(
+        mock_db,
+        payload,
+        creator_user_id=1,
+    )
 
     # Assert
     assert result is not None
@@ -39,18 +42,21 @@ def test_create_project(mock_get_user, mock_create_project, mock_db):
 # Test 2: Project Creation with Invalid / Non-existent User
 @patch("app.services.project_service.user_repository.get_user_by_id")
 def test_create_project_invalid_user(mock_get_user, mock_db):
-    # Arrange: User not found in DB
+    # Arrange: Creator user not found in DB
     mock_get_user.return_value = None
 
     payload = ProjectCreate(
         name="Ghost Project",
         description="Created by non-existent user",
         status="ACTIVE",
-        user_id=999,
     )
 
     # Act
-    result = project_service.create_project(mock_db, payload)
+    result = project_service.create_project(
+        mock_db,
+        payload,
+        creator_user_id=999,
+    )
 
     # Assert
     assert result is None
@@ -71,12 +77,22 @@ def test_get_project_not_found(mock_get_project, mock_db):
 @patch("app.services.project_service.project_repository.update_project")
 @patch("app.services.project_service.project_repository.get_project_by_id")
 def test_update_project_success(mock_get_project, mock_update_project, mock_db):
-    fake_project = Project(id=1, name="Old Name", description="Old Desc", status="ACTIVE")
+    fake_project = Project(
+        id=1,
+        name="Old Name",
+        description="Old Desc",
+        status="ACTIVE",
+    )
     mock_get_project.return_value = fake_project
     mock_update_project.return_value = fake_project
 
     update_payload = ProjectUpdate(name="New Awesome Name")
-    result = project_service.update_project(mock_db, project_id=1, project_data=update_payload)
+
+    result = project_service.update_project(
+        mock_db,
+        project_id=1,
+        project_data=update_payload,
+    )
 
     assert result is not None
     assert result.name == "New Awesome Name"

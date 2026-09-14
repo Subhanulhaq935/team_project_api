@@ -97,4 +97,3 @@ def test_update_project_success(mock_get_project, mock_update_project, mock_db):
     assert result is not None
     assert result.name == "New Awesome Name"
     mock_update_project.assert_called_once()
-

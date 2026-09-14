@@ -24,7 +24,7 @@ def get_project_by_id(db: Session, project_id: int):
 
 def create_project(db: Session, project_data: ProjectCreate, creator_user_id: int | None = None):
     try:
-        user_id = project_data.user_id or creator_user_id
+        user_id = creator_user_id
         if user_id is None:
             return None
 

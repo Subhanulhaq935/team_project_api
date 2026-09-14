@@ -210,7 +210,7 @@ def get_project(
 def create_project(
     project: ProjectCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles("admin", "manager")),
+    current_user: User = Depends(get_current_user),
 ):
     created_project = project_service.create_project(db, project, creator_user_id=current_user.id)
     if created_project is None:

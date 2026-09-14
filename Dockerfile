@@ -9,8 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # 3. Set working directory inside the container
 WORKDIR /app
 
-# 4. Install essential build tools & PostgreSQL client libraries
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 4. Update system packages to apply latest security patches & install build tools
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \

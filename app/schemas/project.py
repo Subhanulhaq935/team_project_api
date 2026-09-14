@@ -6,7 +6,6 @@ class ProjectCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: str | None = Field(None, max_length=500)
     status: str = "active"
-    user_id: int | None = None
 
 
 # Pydantic Schema for updating a project
